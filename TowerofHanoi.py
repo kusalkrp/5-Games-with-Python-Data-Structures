@@ -1,7 +1,9 @@
+import time
 import tkinter as tk
 import firebase_admin
 from firebase_admin import credentials, firestore
-
+import random
+  
 class TowerOfHanoi:
     def __init__(self, master):
         self.master = master
@@ -113,3 +115,76 @@ class TowerOfHanoi:
         rod_width = 10
         for _, x in self.rod_positions.items():
             self.canvas.create_rectangle(x - rod_width//2, 100, x + rod_width//2, 100 + rod_height, fill="black")
+            
+    def validate_disk_entry(self, value):
+            """ Validate the disk entry to ensure it is a positive integer """
+            if value == "":
+                return True  # Allow empty entry
+            try:
+                int_value = int(value)
+                if int_value > 0:
+                    return True
+                else:
+                    return False
+            except ValueError:
+                return False
+
+    def go_to_name_entry_frame(self):
+            self.show_frame("NameEntry")
+
+    def go_to_disk_entry_frame(self):
+            if not self.name.get():
+                self.name_error_label.config(text="Name cannot be empty")
+                return
+            self.name_error_label.config(text="")
+            self.show_frame("DiskEntry")
+            
+    def start_game(self):
+            num_disks = self.num_disks.get()
+            if num_disks < 1:
+                self.disk_error_label.config(text="Number of disks must be greater than 0")
+                return
+
+            self.disk_error_label.config(text="")
+            self.start_time = time.time()
+            self.num_moves = 0
+            self.move_sequence = []
+            self.rods = {'A': [], 'B': [], 'C': []}
+            self.disks = []
+            
+            # Initialize disks with colors
+            self.disk_colors = {}
+            for i in range(num_disks, 0, -1):
+                self.rods['A'].append(i)
+                self.disk_colors[i] = self.generate_color_for_disk(i, num_disks)
+
+            self.draw_disks()
+            self.start_new_game_button.pack_forget()
+            self.back_to_main_menu_button.pack_forget()
+            self.show_frame("Game")
+            
+  
+    
+    def generate_color_for_disk(self, disk_size, num_disks):
+        if num_disks <= 3:
+            colors = ['red', 'blue', 'black', 'green']  # Four colors for 4 or fewer disks
+            return colors[disk_size % len(colors)]
+        else:
+            return "#{:06x}".format(random.randint(0, 0xFFFFFF))  # Random color
+
+    def draw_disks(self):
+        self.canvas.delete("disk")  # Only delete disks, not rods
+        self.disks.clear()
+          
+        for rod, disks in self.rods.items():
+            x = self.rod_positions[rod]
+            for i, disk in enumerate(disks):
+                y = 300 - ((i + 1) * 20)  # Adjusted to match rod height
+                color = self.disk_colors[disk]  # Use stored color
+                outline_color = "yellow" if i == len(disks) - 1 else "black"  # Highlight top disk with yellow outline
+                rect = self.canvas.create_rectangle(x - disk * 10, y, x + disk * 10, y + 20, fill=color, outline=outline_color, tags="disk")
+                self.disks.append((rect, rod, disk))
+                if i == len(disks) - 1:  # Only bind events to the top disk
+                    self.canvas.tag_bind(rect, "<ButtonPress-1>", self.on_disk_press)
+                    self.canvas.tag_bind(rect, "<B1-Motion>", self.on_disk_drag)
+                    self.canvas.tag_bind(rect, "<ButtonRelease-1>", self.on_disk_release)
