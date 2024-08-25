@@ -117,17 +117,22 @@ class TowerOfHanoi:
             self.canvas.create_rectangle(x - rod_width//2, 100, x + rod_width//2, 100 + rod_height, fill="black")
             
     def validate_disk_entry(self, value):
-            """ Validate the disk entry to ensure it is a positive integer """
-            if value == "":
-                return True  # Allow empty entry
-            try:
-                int_value = int(value)
-                if int_value > 0:
-                    return True
-                else:
-                    return False
-            except ValueError:
+        """ Validate the disk entry to ensure it is a positive integer """
+        if value == "":
+            self.disk_error_label.config(text="")  # Clear any previous error messages
+            return True  # Allow empty entry
+        try:
+            int_value = int(value)
+            if int_value > 0:
+                self.disk_error_label.config(text="")  # Clear any previous error messages
+                return True
+            else:
+                self.disk_error_label.config(text="Number of disks must be greater than 0")
                 return False
+        except ValueError:
+            self.disk_error_label.config(text="Please enter a valid number")
+            return False
+
 
     def go_to_name_entry_frame(self):
             self.show_frame("NameEntry")
@@ -188,3 +193,80 @@ class TowerOfHanoi:
                     self.canvas.tag_bind(rect, "<ButtonPress-1>", self.on_disk_press)
                     self.canvas.tag_bind(rect, "<B1-Motion>", self.on_disk_drag)
                     self.canvas.tag_bind(rect, "<ButtonRelease-1>", self.on_disk_release)
+                    
+                    
+    def on_disk_press(self, event):
+        item = self.canvas.find_closest(event.x, event.y)[0]
+    
+        # Find the disk and rod associated with the item
+        disk_index = next(i for i, d in enumerate(self.disks) if d[0] == item)
+        rod = self.disks[disk_index][1]
+    
+        # Initialize drag_data
+        self.drag_data = {
+            "item": item,
+            "x": event.x,
+            "y": event.y,
+        }
+    
+        # Check if the disk is the topmost disk on its rod
+        if self.rods[rod][-1] != self.disks[disk_index][2]:
+            self.error_label.config(text="Error: You can only move the top disk.")
+            return
+    
+        # Clear the error message if the user selects the correct disk
+        self.error_label.config(text="")
+    
+        self.canvas.tag_raise(item)
+    
+    def on_disk_drag(self, event):
+        if not self.drag_data:
+            return  # Do nothing if drag_data is not set
+        
+        item = self.drag_data["item"]
+        x = event.x
+        y = event.y
+        dx = x - self.drag_data["x"]
+        dy = y - self.drag_data["y"]
+        self.canvas.move(item, dx, dy)
+        self.drag_data["x"] = x
+        self.drag_data["y"] = y
+    
+    def on_disk_release(self, event):
+        try:
+            if not self.drag_data:
+                return  # Do nothing if drag_data is not set
+
+            item = self.drag_data["item"]
+            x = event.x
+            rod = self.get_rod(x)
+
+            # Identify the disk being moved
+            disk_index = next(i for i, d in enumerate(self.disks) if d[0] == item)
+            current_rod = self.disks[disk_index][1]
+            disk_size = self.disks[disk_index][2]
+
+            # Validate the rod
+            if rod is None or rod == current_rod:
+                self.reset_disk(item)
+                return
+
+            # Check if the move is valid (placing the disk on an empty rod or on a larger disk)
+            if not self.rods[rod] or self.rods[rod][-1] > disk_size:
+                self.rods[current_rod].pop()
+                self.rods[rod].append(disk_size)
+                self.disks[disk_index] = (item, rod, disk_size)
+                self.move_sequence.append((current_rod, rod))
+                self.num_moves += 1
+                self.draw_disks()
+                self.check_win()
+                self.error_label.config(text="")  # Clear any previous error messages
+            else:
+                self.error_label.config(text="Invalid move: You cannot place a larger disk on a smaller one.")
+                self.reset_disk(item)
+        except KeyError:
+            self.error_label.config(text="Unexpected error: Unable to move disk. Please try again.")
+            self.reset_disk(None)
+        except Exception as e:
+            self.error_label.config(text=f"Unexpected error: {str(e)}")
+            self.reset_disk(None)
