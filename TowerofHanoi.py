@@ -9,8 +9,8 @@ class TowerOfHanoi:
     def __init__(self, master):
         self.master = master
         self.master.title("Tower of Hanoi")
-        self.master.geometry("800x600")  # Increased window size
-        
+        self.master.geometry("800x650")  # Increased window size
+        self.master.configure(bg="#ffffff")
         # Prevent the window from being resized
         self.master.resizable(False, False)
         
@@ -30,37 +30,63 @@ class TowerOfHanoi:
 
     def initialize_firebase(self):
         # Use your own Firebase credentials
-        cred = credentials.Certificate("pdsa-cw-firebase-adminsdk-fekak-92d0a01b44.json")
-        firebase_admin.initialize_app(cred)
+        try:
+            if not firebase_admin._apps:  # Check if Firebase is already initialized
+                cred = credentials.Certificate("###################################")
+                firebase_admin.initialize_app(cred)
+        except ValueError as e:
+            print(f"Error initializing Firebase: {e}")
+        
         self.db = firestore.client()
-        
-        
         
     def create_frames(self):
         # Create frames for different stages
-        self.frames["NameEntry"] = tk.Frame(self.master)
-        self.frames["DiskEntry"] = tk.Frame(self.master)
-        self.frames["Game"] = tk.Frame(self.master)
+        self.frames["NameEntry"] = tk.Frame(self.master,bg="#ffffff")
+        self.frames["DiskEntry"] = tk.Frame(self.master,bg="#ffffff")
+        self.frames["Game"] = tk.Frame(self.master,bg="#ffffff")
 
         self.create_name_entry_frame()
         self.create_disk_entry_frame()
         self.create_game_frame()
         
+    def show_frame(self, frame_name):
+        frame = self.frames[frame_name]
+        frame.pack(fill="both", expand=True)
+        if self.current_frame:
+            self.current_frame.pack_forget()
+        self.current_frame = frame
+        
     def create_name_entry_frame(self):
         frame = self.frames["NameEntry"]
 
-        tk.Label(frame, text="Enter Your Name:", font=("Arial", 14)).pack(pady=20)
+        tk.Label(frame, text="Enter Your Name:", font=("Arial", 18, "bold"), fg="#fa0000", bg="#ffffff").pack(pady=20)
         tk.Entry(frame, textvariable=self.name, font=("Arial", 14)).pack(pady=10)
         
         self.name_error_label = tk.Label(frame, text="", fg="red", font=("Arial", 12))
         self.name_error_label.pack(pady=5)
         
-        tk.Button(frame, text="Next", command=self.go_to_disk_entry_frame, font=("Arial", 12)).pack(pady=20)
+        tk.Button(
+            frame,
+            text="Next",
+            command=self.go_to_disk_entry_frame,
+            font=("Arial", 12, "bold"),
+            bg="#f86b53",         
+            fg="white",          
+            padx=10,              
+            pady=5,              
+            relief="raised",      
+            borderwidth=2,        
+            width=20,             
+            height=1,             
+            activebackground="#e74755",  
+            activeforeground="white"     
+        ).pack(pady=20)
+
         
     def create_disk_entry_frame(self):
         frame = self.frames["DiskEntry"]
 
-        tk.Label(frame, text="Enter Number of Disks:", font=("Arial", 14)).pack(pady=20)
+        tk.Label(frame, text="Enter Number of Disks:", font=("Arial", 18, "bold"), fg="#fa0000", bg="#ffffff").pack(pady=20)
         # Validate that only positive integers are accepted
         validate_command = self.master.register(self.validate_disk_entry)
         self.disk_entry = tk.Entry(frame, textvariable=self.num_disks, font=("Arial", 14),
@@ -70,52 +96,93 @@ class TowerOfHanoi:
         self.disk_error_label = tk.Label(frame, text="", fg="red", font=("Arial", 12))
         self.disk_error_label.pack(pady=5)
         
-        tk.Button(frame, text="Start Game", command=self.start_game, font=("Arial", 12)).pack(pady=20)
-        tk.Button(frame, text="Back", command=self.go_to_name_entry_frame, font=("Arial", 12)).pack(pady=10)
+        tk.Button(frame, text="Start Game", command=self.start_game,font=("Arial", 12, "bold"),
+            bg="#f86b53",         
+            fg="white",          
+            padx=10,              
+            pady=5,              
+            relief="raised",      
+            borderwidth=2,        
+            width=20,             
+            height=1,             
+            activebackground="#e74755",  
+            activeforeground="white" ).pack(pady=20)
+        tk.Button(frame, text="Back", command=self.go_to_name_entry_frame, font=("Arial", 12, "bold"),
+            bg="#f86b53",         
+            fg="white",          
+            padx=10,              
+            pady=5,              
+            relief="raised",      
+            borderwidth=2,        
+            width=20,             
+            height=1,             
+            activebackground="#e74755",  
+            activeforeground="white" ).pack(pady=10)
         
     def create_game_frame(self):
         frame = self.frames["Game"]
-        
+    
         # Create a menu bar
         menu_bar = tk.Menu(frame)
         frame.master.config(menu=menu_bar)  # Attach the menu bar to the main window
-    
+
         # Create a 'Game' menu
         game_menu = tk.Menu(menu_bar, tearoff=0)
         menu_bar.add_cascade(label="Menu", menu=game_menu)
-    
-        # Add 'Start New Game' and 'Exit' options
+
+        # Add 'Start New Game', 'View Results', and 'Exit' options
         game_menu.add_command(label="Start New Game", command=self.start_new_game)
+        game_menu.add_command(label="View Results", command=self.create_results_frame)
         game_menu.add_command(label="Exit", command=self.go_back_to_main_menu)
-        
-        self.instructions_label = tk.Label(frame, text="*** Move all disks from rod A to rod C ***", font=("Arial", 12))
+    
+        # Instructions and Error Labels
+        self.instructions_label = tk.Label(frame, text=" ----- Move all disks from rod A to rod C -----", font=("Arial", 15),bg="#ffffff", fg="blue")
         self.instructions_label.pack(pady=5)
-        self.instructions_label = tk.Label(frame, text="*** Move only one disk at a time ***", font=("Arial", 12))
+        self.instructions_label = tk.Label(frame, text="----- Move only one disk at a time -----", font=("Arial", 15),bg="#ffffff", fg="blue")
         self.instructions_label.pack(pady=10)
-        
+    
         self.error_label = tk.Label(frame, text="", fg="red", font=("Arial", 12))
         self.error_label.pack(pady=5)
-        
-        self.canvas = tk.Canvas(frame, width=600, height=300, bg='white')
+    
+        # Canvas for drawing
+        self.canvas = tk.Canvas(frame, width=600, height=300, bg='#eee0d3')
         self.canvas.pack(pady=20)
-        
+    
+        # Result label
         self.result_label = tk.Label(frame, text="", font=("Arial", 12))
         self.result_label.pack(pady=10)
-        
-        self.start_new_game_button = tk.Button(frame, text="Start New Game", command=self.start_new_game, font=("Arial", 12))
+    
+        # Buttons
+        self.start_new_game_button = tk.Button(frame, text="Start New Game", command=self.start_new_game, font=("Arial", 12, "bold"),
+            bg="#f86b53", fg="white", padx=10, pady=5, relief="raised", borderwidth=2, width=20, height=1,
+            activebackground="#e74755", activeforeground="white")
         self.start_new_game_button.pack(pady=5)
-        self.back_to_main_menu_button = tk.Button(frame, text="Back to Main Menu", command=self.go_back_to_main_menu, font=("Arial", 12))
+        self.back_to_main_menu_button = tk.Button(frame, text="Back to Main Menu", command=self.go_back_to_main_menu, font=("Arial", 12, "bold"),
+            bg="#f86b53", fg="white", padx=10, pady=5, relief="raised", borderwidth=2, width=20, height=1,
+            activebackground="#e74755", activeforeground="white")
         self.back_to_main_menu_button.pack(pady=20)
-        
+    
+        # Initialize rods
         self.rods = {'A': [], 'B': [], 'C': []}
         self.rod_positions = {'A': 100, 'B': 300, 'C': 500}
         self.disks = []
 
-        # Draw the rods
+        # Draw the rods and their labels
         rod_height = 200
         rod_width = 10
-        for _, x in self.rod_positions.items():
-            self.canvas.create_rectangle(x - rod_width//2, 100, x + rod_width//2, 100 + rod_height, fill="black")
+        rod_labels = ['A', 'B', 'C']  # Labels for the rods
+
+        for idx, (rod_name, x) in enumerate(self.rod_positions.items()):
+            # Draw the rod
+            self.canvas.create_rectangle(x - rod_width // 2, 100, x + rod_width // 2, 100 + rod_height, fill="black")
+
+            # Add the label
+            label_x = x  # X position for the label, centered on the rod
+            label_y = 100 -20  # Y position for the label, slightly below the rod
+            self.canvas.create_text(label_x, label_y, text=rod_labels[idx], font=("Arial", 14, "bold"), fill="red")
+
+
+
             
     def validate_disk_entry(self, value):
         """ Validate the disk entry to ensure it is a positive integer """
@@ -313,7 +380,7 @@ class TowerOfHanoi:
         player_name = self.name.get()
         num_disks = self.num_disks.get()
         moves = self.num_moves
-        time_taken = time.time() - self.start_time
+        time_taken = round(time.time() - self.start_time, 2) 
         game_id = str(uuid.uuid4())  # Generate a unique ID for the game session
 
         move_sequence_str = ",".join(["".join(move) for move in self.move_sequence])
