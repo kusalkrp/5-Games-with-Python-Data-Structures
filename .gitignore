@@ -1,0 +1,11 @@
+# Ignore Python bytecode files
+*.pyc
+
+# Ignore environment variables file
+.env
+
+# Ignore logs directory
+logs/
+
+# Ignore all text files
+*.json

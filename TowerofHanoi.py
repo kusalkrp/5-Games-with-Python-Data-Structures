@@ -32,7 +32,7 @@ class TowerOfHanoi:
         # Use your own Firebase credentials
         try:
             if not firebase_admin._apps:  # Check if Firebase is already initialized
-                cred = credentials.Certificate("###################################")
+                cred = credentials.Certificate("pdsa-cw-firebase-adminsdk-fekak-92d0a01b44.json")
                 firebase_admin.initialize_app(cred)
         except ValueError as e:
             print(f"Error initializing Firebase: {e}")
