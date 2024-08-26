@@ -270,3 +270,113 @@ class TowerOfHanoi:
         except Exception as e:
             self.error_label.config(text=f"Unexpected error: {str(e)}")
             self.reset_disk(None)
+
+    def reset_disk(self, item):
+        if item is None:
+            return  # Do nothing if item is None
+
+        disk_index = next(i for i, d in enumerate(self.disks) if d[0] == item)
+        rod = self.disks[disk_index][1]
+        disk_size = self.disks[disk_index][2]
+        x = self.rod_positions[rod]
+        y = 300 - (len(self.rods[rod]) * 20)
+        self.canvas.coords(item, x - disk_size * 10, y, x + disk_size * 10, y + 20)
+
+    def get_rod(self, x):
+        for rod, pos in self.rod_positions.items():
+            if abs(x - pos) < 50:
+                return rod
+        return None
+
+    def check_win(self):
+        if len(self.rods["C"]) == self.num_disks.get():
+            end_time = time.time()
+            elapsed_time = end_time - self.start_time
+            self.result_label.config(
+                text=f"You've solved the puzzle in {self.num_moves} moves and {elapsed_time:.2f} seconds!"
+            )
+            self.save_game_result()  # Update method name
+            self.start_new_game_button.pack(pady=10)
+            self.back_to_main_menu_button.pack(pady=10)
+
+    def start_new_game(self):
+        self.result_label.config(text="")
+        self.error_label.config(text="")
+        self.num_disks.set(0)
+        self.show_frame("DiskEntry")
+
+    def go_back_to_main_menu(self):
+        self.master.destroy()
+
+    def save_game_result(self):
+        player_name = self.name.get()
+        num_disks = self.num_disks.get()
+        moves = self.num_moves
+        time_taken = time.time() - self.start_time
+        game_id = str(uuid.uuid4())  # Generate a unique ID for the game session
+
+        move_sequence_str = ",".join(["".join(move) for move in self.move_sequence])
+
+        game_data = {
+            "game_id": game_id,
+            "player_name": player_name,  # Store player name for querying
+            "num_disks": num_disks,
+            "moves": moves,
+            "time_taken": time_taken,
+            "move_sequence": move_sequence_str,  # Store the move sequence as a string
+        }
+
+        # Save the game result to Firebase with a unique document ID
+        self.db.collection("TowerofHanoi").document(game_id).set(game_data)
+
+        print(f"Game result saved to Firebase with game ID: {game_id}")
+
+    def get_all_results(self):
+        # Retrieve all documents from the 'TowerofHanoi' collection
+        docs = self.db.collection("TowerofHanoi").stream()
+
+        # Convert documents to dictionaries
+        results = [doc.to_dict() for doc in docs]
+
+        return results
+
+    def create_results_frame(self):
+        frame = tk.Frame(self.master)
+
+        tk.Label(frame, text="Results for All Players:", font=("Arial", 14)).pack(
+            pady=20
+        )
+
+        tk.Button(
+            frame,
+            text="Show All Results",
+            command=self.show_all_results,
+            font=("Arial", 12),
+        ).pack(pady=20)
+
+        self.results_display = tk.Label(frame, text="", font=("Arial", 12))
+        self.results_display.pack(pady=10)
+
+        self.frames["Results"] = frame  # Add to frames dictionary
+        self.show_frame("Results")  # Show this frame
+
+    def show_all_results(self):
+        results = self.get_all_results()
+
+        if results:
+            results_text = "\n".join(
+                [
+                    f"Name: {result['player_name']}, Moves: {result['moves']}, Movements: {result['move_sequence']},, Disks: {result['num_disks']}, Time Taken: {result['time_taken']}"
+                    for result in results
+                ]
+            )
+        else:
+            results_text = "No results found for this player."
+
+        self.results_display.config(text=results_text)
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = TowerOfHanoi(root)
+    root.mainloop()
