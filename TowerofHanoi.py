@@ -34,8 +34,8 @@ class TowerOfHanoi:
         firebase_admin.initialize_app(cred)
         self.db = firestore.client()
         
-
-
+        
+        
     def create_frames(self):
         # Create frames for different stages
         self.frames["NameEntry"] = tk.Frame(self.master)
