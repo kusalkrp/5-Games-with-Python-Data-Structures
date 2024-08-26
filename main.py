@@ -1,5 +1,5 @@
 import tkinter as tk
-
+from TowerofHanoi import TowerOfHanoi
 
 class MainApp:
     def __init__(self, master):
@@ -17,6 +17,7 @@ class MainApp:
         
     def launch_game1(self):
         game_window = tk.Toplevel(self.master)
+        TowerOfHanoi(game_window)  
     
 
     def launch_game2(self):

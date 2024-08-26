@@ -1,5 +1,6 @@
 import time
 import tkinter as tk
+import uuid
 import firebase_admin
 from firebase_admin import credentials, firestore
 import random
