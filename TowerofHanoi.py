@@ -4,6 +4,7 @@ import uuid
 import firebase_admin
 from firebase_admin import credentials, firestore
 import random
+from tkinter import ttk
 
 
 class TowerOfHanoi:
@@ -509,9 +510,26 @@ class TowerOfHanoi:
     def create_results_frame(self):
         frame = tk.Frame(self.master)
 
-        tk.Label(frame, text="Results for All Players:", font=("Arial", 14)).pack(
-            pady=20
-        )
+        tk.Label(frame, text="Results for All Players:", font=("Arial", 14)).pack(pady=20)
+
+        # Create Treeview
+        columns = ("player_name", "moves", "move_sequence", "num_disks", "time_taken")
+        self.results_tree = ttk.Treeview(frame, columns=columns, show="headings")
+        self.results_tree.pack(pady=10, fill="both", expand=True)
+
+        # Define column headings
+        self.results_tree.heading("player_name", text="Name", anchor="w")
+        self.results_tree.heading("moves", text="Moves", anchor="w")
+        self.results_tree.heading("move_sequence", text="Movements", anchor="w")
+        self.results_tree.heading("num_disks", text="Disks", anchor="w")
+        self.results_tree.heading("time_taken", text="Time Taken", anchor="w")
+
+        # Define column widths
+        self.results_tree.column("player_name", width=100, anchor="w")
+        self.results_tree.column("moves", width=60, anchor="w")
+        self.results_tree.column("move_sequence", width=200, anchor="w")
+        self.results_tree.column("num_disks", width=60, anchor="w")
+        self.results_tree.column("time_taken", width=100, anchor="w")
 
         tk.Button(
             frame,
@@ -530,26 +548,28 @@ class TowerOfHanoi:
             activeforeground="white",
         ).pack(pady=20)
 
-        self.results_display = tk.Label(frame, text="", font=("Arial", 12))
-        self.results_display.pack(pady=10)
-
         self.frames["Results"] = frame  # Add to frames dictionary
         self.show_frame("Results")  # Show this frame
 
     def show_all_results(self):
+        # Clear existing data in the Treeview
+        for item in self.results_tree.get_children():
+            self.results_tree.delete(item)
+    
         results = self.get_all_results()
 
         if results:
-            results_text = "\n".join(
-                [
-                    f"Name: {result['player_name']}, Moves: {result['moves']}, Movements: {result['move_sequence']},, Disks: {result['num_disks']}, Time Taken: {result['time_taken']}"
-                    for result in results
-                ]
-            )
+            for result in results:
+                self.results_tree.insert("", "end", values=(
+                    result['player_name'],
+                    result['moves'],
+                    result['move_sequence'],
+                    result['num_disks'],
+                    result['time_taken']
+                ))
         else:
-            results_text = "No results found for this player."
-
-        self.results_display.config(text=results_text)
+            # If no results, you can optionally add a message or handle this case
+            self.results_tree.insert("", "end", values=("No results found", "", "", "", ""))
 
 
 if __name__ == "__main__":
