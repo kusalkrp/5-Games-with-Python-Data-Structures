@@ -7,5 +7,5 @@
 # Ignore logs directory
 logs/
 
-# Ignore all text files
-*.json
+# Ignore Firebase credentials
+pdsa-cw-firebase-adminsdk-fekak-92d0a01b44.json
