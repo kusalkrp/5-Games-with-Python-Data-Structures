@@ -17,7 +17,8 @@ class TowerOfHanoi:
         self.master.resizable(False, False)
 
         self.name = tk.StringVar()
-        self.num_disks = tk.IntVar()
+        self.num_disks = tk.StringVar()
+        self.num_disks_int = tk.IntVar()
         self.num_moves = 0
         self.move_sequence = []
         self.start_time = None
@@ -29,6 +30,8 @@ class TowerOfHanoi:
         self.initialize_firebase()  # Add this line to initialize Firebase
         self.create_frames()
         self.show_frame("NameEntry")
+       
+        
 
     def initialize_firebase(self):
         # Use your own Firebase credentials
@@ -103,14 +106,15 @@ class TowerOfHanoi:
             fg="#fa0000",
             bg="#ffffff",
         ).pack(pady=20)
-        # Validate that only positive integers are accepted
+        
+        # Validate that only whole positive numbers are accepted
         validate_command = self.master.register(self.validate_disk_entry)
         self.disk_entry = tk.Entry(
             frame,
             textvariable=self.num_disks,
             font=("Arial", 14),
             validate="key",
-            validatecommand=(validate_command, "%P"),
+            validatecommand=(validate_command, "%P"),  # Validate the text value
         )
         self.disk_entry.pack(pady=10)
 
@@ -262,27 +266,26 @@ class TowerOfHanoi:
                 fill="red",
             )
 
-    def validate_disk_entry(self, value):
-        """Validate the disk entry to ensure it is a positive integer"""
-        if value == "":
-            self.disk_error_label.config(text="")  # Clear any previous error messages
+    def validate_disk_entry(self, num_disks):
+        """Validate the disk entry to ensure it is a whole positive number."""
+        # Clear any previous error messages when the user starts typing
+        if hasattr(self, 'disk_error_label'):
+            self.disk_error_label.config(text="")
+
+        if num_disks == "":
             return True  # Allow empty entry
+
         try:
-            int_value = int(value)
-            if int_value > 0:
-                self.disk_error_label.config(
-                    text=""
-                )  # Clear any previous error messages
+            value = float(num_disks)
+            if value.is_integer() and int(value) > 0:
                 return True
             else:
-                self.disk_error_label.config(
-                    text="Number of disks must be greater than 0"
-                )
-                return False
+                raise ValueError
         except ValueError:
-            self.disk_error_label.config(text="Please enter a valid number")
+            if hasattr(self, 'disk_error_label'):
+                self.disk_error_label.config(text="Please enter a valid whole positive number")
             return False
-
+        
     def go_to_name_entry_frame(self):
         self.show_frame("NameEntry")
 
@@ -294,10 +297,15 @@ class TowerOfHanoi:
         self.show_frame("DiskEntry")
 
     def start_game(self):
-        num_disks = self.num_disks.get()
-        if num_disks < 1:
-            self.disk_error_label.config(text="Number of disks must be greater than 0")
+        
+        num_disks_str = self.num_disks.get()
+        if not self.validate_disk_entry(num_disks_str):
             return
+
+        num_disks = int(float(num_disks_str))  # Convert validated string to integer
+        self.num_disks_int.set(num_disks)
+        # Clear any error messages
+        self.disk_error_label.config(text="")
 
         self.disk_error_label.config(text="")
         self.start_time = time.time()
@@ -456,7 +464,7 @@ class TowerOfHanoi:
         return None
 
     def check_win(self):
-        if len(self.rods["C"]) == self.num_disks.get():
+        if len(self.rods["C"]) == self.num_disks_int.get():
             end_time = time.time()
             elapsed_time = end_time - self.start_time
             self.result_label.config(
@@ -470,14 +478,14 @@ class TowerOfHanoi:
         self.result_label.config(text="")
         self.error_label.config(text="")
         self.num_disks.set(0)
-        self.show_frame("DiskEntry")
+        self.show_frame("NameEntry")
 
     def go_back_to_main_menu(self):
         self.master.destroy()
 
     def save_game_result(self):
         player_name = self.name.get()
-        num_disks = self.num_disks.get()
+        num_disks = self.num_disks_int.get() 
         moves = self.num_moves
         time_taken = round(time.time() - self.start_time, 2)
         game_id = str(uuid.uuid4())  # Generate a unique ID for the game session
@@ -513,23 +521,23 @@ class TowerOfHanoi:
         tk.Label(frame, text="Results for All Players:", font=("Arial", 14)).pack(pady=20)
 
         # Create Treeview
-        columns = ("player_name", "moves", "move_sequence", "num_disks", "time_taken")
+        columns = ("player_name", "num_disks", "moves", "move_sequence",  "time_taken")
         self.results_tree = ttk.Treeview(frame, columns=columns, show="headings")
         self.results_tree.pack(pady=10, fill="both", expand=True)
 
         # Define column headings
         self.results_tree.heading("player_name", text="Name", anchor="w")
+        self.results_tree.heading("num_disks", text="Disks", anchor="w")
         self.results_tree.heading("moves", text="Moves", anchor="w")
         self.results_tree.heading("move_sequence", text="Movements", anchor="w")
-        self.results_tree.heading("num_disks", text="Disks", anchor="w")
         self.results_tree.heading("time_taken", text="Time Taken", anchor="w")
 
         # Define column widths
         self.results_tree.column("player_name", width=100, anchor="w")
-        self.results_tree.column("moves", width=60, anchor="w")
-        self.results_tree.column("move_sequence", width=200, anchor="w")
-        self.results_tree.column("num_disks", width=60, anchor="w")
-        self.results_tree.column("time_taken", width=100, anchor="w")
+        self.results_tree.column("num_disks", width=30, anchor="w")
+        self.results_tree.column("moves", width=30, anchor="w")
+        self.results_tree.column("move_sequence", width=400, anchor="w")
+        self.results_tree.column("time_taken", width=60, anchor="w")
 
         tk.Button(
             frame,
@@ -547,7 +555,24 @@ class TowerOfHanoi:
             activebackground="#e74755",
             activeforeground="white",
         ).pack(pady=20)
-
+        
+        tk.Button(
+            frame,
+            text="Start New Game",
+            command=self.go_to_name_entry_frame,
+            font=("Arial", 12, "bold"),
+            bg="#f86b53",
+            fg="white",
+            padx=10,
+            pady=5,
+            relief="raised",
+            borderwidth=2,
+            width=20,
+            height=1,
+            activebackground="#e74755",
+            activeforeground="white",
+        ).pack(pady=10)
+        
         self.frames["Results"] = frame  # Add to frames dictionary
         self.show_frame("Results")  # Show this frame
 
@@ -562,9 +587,9 @@ class TowerOfHanoi:
             for result in results:
                 self.results_tree.insert("", "end", values=(
                     result['player_name'],
+                    result['num_disks'],
                     result['moves'],
                     result['move_sequence'],
-                    result['num_disks'],
                     result['time_taken']
                 ))
         else:
