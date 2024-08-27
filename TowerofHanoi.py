@@ -273,7 +273,9 @@ class TowerOfHanoi:
             self.disk_error_label.config(text="")
 
         if num_disks == "":
-            return True  # Allow empty entry
+            if hasattr(self, 'disk_error_label'):
+                self.disk_error_label.config(text="Please enter the number of disks")
+            return False
 
         try:
             value = float(num_disks)
@@ -467,8 +469,9 @@ class TowerOfHanoi:
         if len(self.rods["C"]) == self.num_disks_int.get():
             end_time = time.time()
             elapsed_time = end_time - self.start_time
+            player_name = self.name.get()  # Get the player name from the entry field
             self.result_label.config(
-                text=f"You've solved the puzzle in {self.num_moves} moves and {elapsed_time:.2f} seconds!"
+                text=f"{player_name}, you've solved the puzzle in {self.num_moves} moves and {elapsed_time:.2f} seconds!"
             )
             self.save_game_result()  # Update method name
             self.start_new_game_button.pack(pady=10)
@@ -477,6 +480,10 @@ class TowerOfHanoi:
     def start_new_game(self):
         self.result_label.config(text="")
         self.error_label.config(text="")
+        self.disk_error_label.config(text="")
+        self.name_error_label.config(text="")
+        self.name.set("")
+        self.num_disks.set("")
         self.num_disks.set(0)
         self.show_frame("NameEntry")
 

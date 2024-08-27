@@ -1,5 +1,5 @@
 import tkinter as tk
-from TowerofHanoi import TowerOfHanoi
+from TowerOfHanoi import TowerOfHanoi
 from PIL import Image, ImageTk, ImageDraw
 import os
 #from ShortestPath import ShortestPath  # Import the second game module
