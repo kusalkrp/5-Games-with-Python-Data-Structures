@@ -3,7 +3,7 @@ import time
 import tkinter as tk
 import firebase_admin
 from firebase_admin import credentials, firestore
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 
 class PredictValueIndexGame:
     def __init__(self, master):
@@ -16,12 +16,14 @@ class PredictValueIndexGame:
         self.player_name = tk.StringVar()
         self.target = None
         self.results = {}
+        self.selected_algorithm = tk.StringVar(value="Binary Search")
 
         self.frames = {}
         self.current_frame = None
 
         self.initialize_firebase()
         self.create_frames()
+        self.create_menu()  # Add menu creation method
         self.show_frame("NameEntry")
 
     def initialize_firebase(self):
@@ -36,19 +38,37 @@ class PredictValueIndexGame:
 
     def create_frames(self):
         self.frames["NameEntry"] = tk.Frame(self.master, bg="#ffffff")
+        self.frames["AlgorithmSelection"] = tk.Frame(self.master, bg="#ffffff")
         self.frames["Game"] = tk.Frame(self.master, bg="#ffffff")
         self.frames["Result"] = tk.Frame(self.master, bg="#ffffff")
 
         self.create_name_entry_frame()
+        self.create_algorithm_selection_frame()
         self.create_game_frame()
         self.create_result_frame()
 
+    def create_menu(self):
+        # Create a menu bar
+        menu_bar = tk.Menu(self.master)
+
+        # Create "Game" menu
+        game_menu = tk.Menu(menu_bar, tearoff=0)
+        game_menu.add_command(label="Start New Game", command=lambda: self.show_frame("NameEntry"))
+        game_menu.add_command(label="View Results", command=self.view_results)
+        game_menu.add_separator()
+        game_menu.add_command(label="Exit", command=self.master.quit)
+
+        # Add "Game" menu to the menu bar
+        menu_bar.add_cascade(label="Menu", menu=game_menu)
+
+        # Set the menu bar on the root window
+        self.master.config(menu=menu_bar)
+
     def show_frame(self, frame_name):
-        frame = self.frames[frame_name]
-        frame.pack(fill="both", expand=True)
         if self.current_frame:
             self.current_frame.pack_forget()
-        self.current_frame = frame
+        self.current_frame = self.frames[frame_name]
+        self.current_frame.pack(fill="both", expand=True)
 
     def create_name_entry_frame(self):
         frame = self.frames["NameEntry"]
@@ -56,10 +76,30 @@ class PredictValueIndexGame:
         tk.Label(frame, text="Enter Your Name:", font=("Arial", 18, "bold"), fg="#fa0000", bg="#ffffff").pack(pady=20)
         tk.Entry(frame, textvariable=self.player_name, font=("Arial", 14)).pack(pady=10)
 
-        self.name_error_label = tk.Label(frame, text="", fg="red", font=("Arial", 12))
+        self.name_error_label = tk.Label(frame, text="", fg="red", font=("Arial", 12), bg="#ffffff")
         self.name_error_label.pack(pady=5)
 
-        tk.Button(frame, text="Next", command=self.start_game, font=("Arial", 12, "bold"),
+        tk.Button(frame, text="Next", command=self.go_to_algorithm_selection, font=("Arial", 12, "bold"),
+                  bg="#f86b53", fg="white", padx=10, pady=5, relief="raised", borderwidth=2).pack(pady=20)
+
+    def go_to_algorithm_selection(self):
+        if not self.player_name.get():
+            self.name_error_label.config(text="Name cannot be empty")
+            return
+        self.name_error_label.config(text="")
+        self.show_frame("AlgorithmSelection")
+
+    def create_algorithm_selection_frame(self):
+        frame = self.frames["AlgorithmSelection"]
+
+        tk.Label(frame, text="Select Algorithm:", font=("Arial", 18, "bold"), fg="#fa0000", bg="#ffffff").pack(pady=20)
+
+        algorithms = ["Binary Search", "Jump Search", "Exponential Search", "Fibonacci Search", "Interpolation Search"]
+        for algo in algorithms:
+            tk.Radiobutton(frame, text=algo, variable=self.selected_algorithm, value=algo,
+                           font=("Arial", 14), bg="#ffffff").pack(anchor="w", padx=20)
+
+        tk.Button(frame, text="Start Game", command=self.start_game, font=("Arial", 12, "bold"),
                   bg="#f86b53", fg="white", padx=10, pady=5, relief="raised", borderwidth=2).pack(pady=20)
 
     def create_game_frame(self):
@@ -90,13 +130,10 @@ class PredictValueIndexGame:
                   bg="#f86b53", fg="white", padx=10, pady=5, relief="raised", borderwidth=2).pack(pady=10)
 
     def start_game(self):
-        if not self.player_name.get():
-            self.name_error_label.config(text="Name cannot be empty")
-            return
-        self.name_error_label.config(text="")
-
         numbers = sorted(random.sample(range(1, 1000001), 5000))
         self.target = random.choice(numbers)
+        algorithm = self.selected_algorithm.get()
+
         algorithms = {
             "Binary Search": self.binary_search,
             "Jump Search": self.jump_search,
@@ -105,18 +142,18 @@ class PredictValueIndexGame:
             "Interpolation Search": self.interpolation_search
         }
 
-        for name, algorithm in algorithms.items():
-            start_time = time.time()
-            index = algorithm(numbers, self.target)
-            elapsed_time = time.time() - start_time
-            self.results[name] = {"index": index, "time": elapsed_time}
+        start_time = time.time()
+        index = algorithms[algorithm](numbers, self.target)
+        elapsed_time = time.time() - start_time
+        self.results[algorithm] = {"index": index, "time": elapsed_time}
 
         self.update_game()
         self.show_frame("Game")
 
     def update_game(self):
         self.label_target.config(text=f"Predict the index of {self.target}:")
-        options = [self.results["Binary Search"]["index"]] + random.sample(range(0, 5000), 3)
+        correct_index = self.results[self.selected_algorithm.get()]["index"]
+        options = [correct_index] + random.sample(range(0, 5000), 3)
         random.shuffle(options)
         for i, option in enumerate(options):
             self.radio_buttons[i].config(text=f"Index {option}", value=option)
@@ -124,7 +161,7 @@ class PredictValueIndexGame:
 
     def submit_answer(self):
         choice = self.var.get()
-        correct_index = self.results["Binary Search"]["index"]
+        correct_index = self.results[self.selected_algorithm.get()]["index"]
 
         if choice == correct_index:
             messagebox.showinfo("Correct!", f"Well done, {self.player_name.get()}! You guessed correctly.")
@@ -143,8 +180,9 @@ class PredictValueIndexGame:
                 'player_name': self.player_name.get(),
                 'correct_answer': self.target,
                 'chosen_index': choice,
-                'search_method': "Binary Search",
-                'time_taken': self.results["Binary Search"]["time"]
+                'correct_index': correct_index,
+                'search_method': self.selected_algorithm.get(),
+                'time_taken': self.results[self.selected_algorithm.get()]["time"]
             })
         except Exception as e:
             messagebox.showerror("Database Error", f"Failed to save data to Firebase: {e}")
@@ -154,6 +192,11 @@ class PredictValueIndexGame:
             self.result_label.config(text="Congratulations, you were correct!")
         else:
             self.result_label.config(text=f"Sorry, the correct index was {correct_index}.")
+
+    def view_results(self):
+        # This method will be called from the menu bar to view results
+        messagebox.showinfo("View Results", "Functionality to view results can be implemented here.")
+        # Add your logic to fetch and display results here
 
     # Search algorithms
     @staticmethod
@@ -190,7 +233,7 @@ class PredictValueIndexGame:
             return 0
         i = 1
         while i < len(arr) and arr[i] <= x:
-            i = i * 2
+            i *= 2
         return PredictValueIndexGame.binary_search(arr[:min(i, len(arr))], x)
 
     @staticmethod
