@@ -58,7 +58,7 @@ class MainApp:
         img_label = tk.Label(parent, image=self.game_images.get(game_name), bg="#ffffff")
         img_label.grid(row=row, column=0, padx=10, pady=5, sticky="w")
 
-        button = tk.Button(parent, text=game_name, command=command, font=("Arial", 12, "bold"), bg="#68adee", fg="#ffffff", relief="flat", width=17, anchor="w", padx=10)
+        button = tk.Button(parent, text=game_name, command=command, font=("Arial", 12, "bold"), bg="#f86b53", fg="#ffffff", relief="flat", width=17, anchor="w", padx=10)
         button.grid(row=row, column=1, padx=10, pady=5, sticky="w")
 
     def launch_game1(self):

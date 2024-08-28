@@ -30,9 +30,7 @@ class TowerOfHanoi:
         self.initialize_firebase()  # Add this line to initialize Firebase
         self.create_frames()
         self.show_frame("NameEntry")
-       
         
-
     def initialize_firebase(self):
         # Use your own Firebase credentials
         try:
