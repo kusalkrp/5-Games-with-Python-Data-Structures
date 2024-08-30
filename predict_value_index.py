@@ -3,7 +3,7 @@ import time
 import tkinter as tk
 import firebase_admin
 from firebase_admin import credentials, firestore
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 
 class PredictValueIndexGame:
     def __init__(self, master):
@@ -23,7 +23,7 @@ class PredictValueIndexGame:
 
         self.initialize_firebase()
         self.create_frames()
-        self.create_menu()  # Add menu creation method
+        self.create_menu()
         self.show_frame("NameEntry")
 
     def initialize_firebase(self):
@@ -41,27 +41,24 @@ class PredictValueIndexGame:
         self.frames["AlgorithmSelection"] = tk.Frame(self.master, bg="#ffffff")
         self.frames["Game"] = tk.Frame(self.master, bg="#ffffff")
         self.frames["Result"] = tk.Frame(self.master, bg="#ffffff")
+        self.frames["ViewResults"] = tk.Frame(self.master, bg="#ffffff")
 
         self.create_name_entry_frame()
         self.create_algorithm_selection_frame()
         self.create_game_frame()
         self.create_result_frame()
+        self.create_view_results_frame()
 
     def create_menu(self):
-        # Create a menu bar
         menu_bar = tk.Menu(self.master)
 
-        # Create "Game" menu
         game_menu = tk.Menu(menu_bar, tearoff=0)
         game_menu.add_command(label="Start New Game", command=lambda: self.show_frame("NameEntry"))
         game_menu.add_command(label="View Results", command=self.view_results)
         game_menu.add_separator()
         game_menu.add_command(label="Exit", command=self.master.quit)
 
-        # Add "Game" menu to the menu bar
         menu_bar.add_cascade(label="Menu", menu=game_menu)
-
-        # Set the menu bar on the root window
         self.master.config(menu=menu_bar)
 
     def show_frame(self, frame_name):
@@ -129,6 +126,22 @@ class PredictValueIndexGame:
         tk.Button(frame, text="Exit", command=self.master.quit, font=("Arial", 12, "bold"),
                   bg="#f86b53", fg="white", padx=10, pady=5, relief="raised", borderwidth=2).pack(pady=10)
 
+    def create_view_results_frame(self):
+        frame = self.frames["ViewResults"]
+
+        self.results_tree = ttk.Treeview(frame, columns=("Player", "Correct Answer", "Chosen Index", "Correct Index", "Algorithm", "Time"), show="headings")
+        self.results_tree.heading("Player", text="Player")
+        self.results_tree.heading("Correct Answer", text="Correct Answer")
+        self.results_tree.heading("Chosen Index", text="Chosen Index")
+        self.results_tree.heading("Correct Index", text="Correct Index")
+        self.results_tree.heading("Algorithm", text="Algorithm")
+        self.results_tree.heading("Time", text="Time Taken (s)")
+
+        self.results_tree.pack(fill="both", expand=True, padx=20, pady=20)
+
+        tk.Button(frame, text="Back to Menu", command=lambda: self.show_frame("NameEntry"), font=("Arial", 12, "bold"),
+                  bg="#f86b53", fg="white", padx=10, pady=5, relief="raised", borderwidth=2).pack(pady=10)
+
     def start_game(self):
         numbers = sorted(random.sample(range(1, 1000001), 5000))
         self.target = random.choice(numbers)
@@ -142,9 +155,11 @@ class PredictValueIndexGame:
             "Interpolation Search": self.interpolation_search
         }
 
-        start_time = time.time()
+        start_time = time.perf_counter()  # Start the timer using perf_counter
         index = algorithms[algorithm](numbers, self.target)
-        elapsed_time = time.time() - start_time
+        end_time = time.perf_counter()  # End the timer using perf_counter
+        elapsed_time = end_time - start_time  # Calculate elapsed time
+
         self.results[algorithm] = {"index": index, "time": elapsed_time}
 
         self.update_game()
@@ -185,103 +200,119 @@ class PredictValueIndexGame:
                 'time_taken': self.results[self.selected_algorithm.get()]["time"]
             })
         except Exception as e:
-            messagebox.showerror("Database Error", f"Failed to save data to Firebase: {e}")
+            print(f"Error saving result to Firebase: {e}")
+            messagebox.showerror("Firebase Error", f"Failed to save result to Firebase: {e}")
 
     def update_result(self, correct, correct_index):
         if correct:
-            self.result_label.config(text="Congratulations, you were correct!")
+            self.result_label.config(text=f"Congratulations {self.player_name.get()}! You guessed the correct index.")
         else:
-            self.result_label.config(text=f"Sorry, the correct index was {correct_index}.")
+            self.result_label.config(text=f"Sorry {self.player_name.get()}, the correct index was {correct_index}.")
 
     def view_results(self):
-        # This method will be called from the menu bar to view results
-        messagebox.showinfo("View Results", "Functionality to view results can be implemented here.")
-        # Add your logic to fetch and display results here
+        try:
+            self.results_tree.delete(*self.results_tree.get_children())  # Clear current results
 
-    # Search algorithms
-    @staticmethod
-    def binary_search(arr, x):
-        low, high = 0, len(arr) - 1
-        while low <= high:
-            mid = (low + high) // 2
+            docs = self.db.collection('predict_value_index').stream()
+            for doc in docs:
+                data = doc.to_dict()
+                self.results_tree.insert("", "end", values=(
+                    data['player_name'],
+                    data['correct_answer'],
+                    data['chosen_index'],
+                    data['correct_index'],
+                    data['search_method'],
+                    round(data['time_taken'], 4)
+                ))
+
+            self.show_frame("ViewResults")
+        except Exception as e:
+            print(f"Error retrieving results from Firebase: {e}")
+            messagebox.showerror("Firebase Error", f"Failed to retrieve results from Firebase: {e}")
+
+    def binary_search(self, arr, x):
+        l, r = 0, len(arr) - 1
+        while l <= r:
+            mid = l + (r - l) // 2
             if arr[mid] == x:
                 return mid
             elif arr[mid] < x:
-                low = mid + 1
+                l = mid + 1
             else:
-                high = mid - 1
+                r = mid - 1
         return -1
 
-    @staticmethod
-    def jump_search(arr, x):
+    def jump_search(self, arr, x):
         n = len(arr)
         step = int(n ** 0.5)
         prev = 0
-        while arr[min(step, n)-1] < x:
+        while arr[min(step, n) - 1] < x:
             prev = step
             step += int(n ** 0.5)
             if prev >= n:
                 return -1
-        for i in range(prev, min(step, n)):
-            if arr[i] == x:
-                return i
+        while arr[prev] < x:
+            prev += 1
+            if prev == min(step, n):
+                return -1
+        if arr[prev] == x:
+            return prev
         return -1
 
-    @staticmethod
-    def exponential_search(arr, x):
+    def exponential_search(self, arr, x):
+        n = len(arr)
         if arr[0] == x:
             return 0
         i = 1
-        while i < len(arr) and arr[i] <= x:
+        while i < n and arr[i] <= x:
             i *= 2
-        return PredictValueIndexGame.binary_search(arr[:min(i, len(arr))], x)
+        return self.binary_search(arr[:min(i, n)], x)
 
-    @staticmethod
-    def fibonacci_search(arr, x):
-        fib_mm2 = 0  
-        fib_mm1 = 1  
-        fib_m = fib_mm1 + fib_mm2  
+    def fibonacci_search(self, arr, x):
+        fibM2 = 0
+        fibM1 = 1
+        fibM = fibM2 + fibM1
         n = len(arr)
-        while fib_m < n:
-            fib_mm2 = fib_mm1
-            fib_mm1 = fib_m
-            fib_m = fib_mm1 + fib_mm2
+        while fibM < n:
+            fibM2 = fibM1
+            fibM1 = fibM
+            fibM = fibM2 + fibM1
         offset = -1
-        while fib_m > 1:
-            i = min(offset + fib_mm2, n-1)
+        while fibM > 1:
+            i = min(offset + fibM2, n - 1)
             if arr[i] < x:
-                fib_m = fib_mm1
-                fib_mm1 = fib_mm2
-                fib_mm2 = fib_m - fib_mm1
+                fibM = fibM1
+                fibM1 = fibM2
+                fibM2 = fibM - fibM1
                 offset = i
             elif arr[i] > x:
-                fib_m = fib_mm2
-                fib_mm1 -= fib_mm2
-                fib_mm2 = fib_m - fib_mm1
+                fibM = fibM2
+                fibM1 -= fibM2
+                fibM2 = fibM - fibM1
             else:
                 return i
-        if fib_mm1 and arr[offset+1] == x:
+        if fibM1 and arr[offset + 1] == x:
             return offset + 1
         return -1
 
-    @staticmethod
-    def interpolation_search(arr, x):
-        low = 0
-        high = len(arr) - 1
-        while low <= high and arr[low] <= x <= arr[high]:
-            pos = low + ((x - arr[low]) * (high - low)) // (arr[high] - arr[low])
+    def interpolation_search(self, arr, x):
+        lo, hi = 0, len(arr) - 1
+        while lo <= hi and x >= arr[lo] and x <= arr[hi]:
+            if lo == hi:
+                if arr[lo] == x:
+                    return lo
+                return -1
+            pos = lo + ((hi - lo) // (arr[hi] - arr[lo]) * (x - arr[lo]))
             if arr[pos] == x:
                 return pos
-            elif arr[pos] < x:
-                low = pos + 1
+            if arr[pos] < x:
+                lo = pos + 1
             else:
-                high = pos - 1
+                hi = pos - 1
         return -1
 
-def main():
-    root = tk.Tk()
-    app = PredictValueIndexGame(root)
-    root.mainloop()
 
 if __name__ == "__main__":
-    main()
+    root = tk.Tk()
+    game = PredictValueIndexGame(root)
+    root.mainloop()

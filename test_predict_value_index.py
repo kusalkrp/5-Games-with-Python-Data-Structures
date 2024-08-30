@@ -1,14 +1,12 @@
 import unittest
 from unittest.mock import MagicMock, patch
 import tkinter as tk
-import random
-import time
-from predict_value_index import predict_value_index
+from predict_value_index import PredictValueIndexGame  # Import your main class correctly
 
 class TestPredictValueIndexGame(unittest.TestCase):
     def setUp(self):
         self.root = tk.Tk()
-        self.app = predict_value_index(self.root)
+        self.app = PredictValueIndexGame(self.root)  # Initialize the app correctly
         self.app.initialize_firebase = MagicMock()  # Mock Firebase initialization
         self.app.db = MagicMock()  # Mock Firestore client
 
@@ -41,14 +39,14 @@ class TestPredictValueIndexGame(unittest.TestCase):
         finally:
             print("Finished test_go_to_algorithm_selection_invalid_name")
 
-    @patch('PredictValueIndexGame.PredictValueIndexGame.binary_search')
+    @patch.object(PredictValueIndexGame, 'binary_search')  # Properly patch the method in the class
     def test_start_game(self, mock_binary_search):
         print("Starting test_start_game")
         try:
             mock_binary_search.return_value = 2500
             self.app.selected_algorithm.set("Binary Search")
             self.app.start_game()
-            self.assertEqual(self.app.target in range(1, 1000001), True)
+            self.assertIn(self.app.target, range(1, 1000001))
             self.assertEqual(self.app.results["Binary Search"]["index"], 2500)
             print("test_start_game passed")
         except AssertionError as e:
@@ -102,7 +100,7 @@ class TestPredictValueIndexGame(unittest.TestCase):
         finally:
             print("Finished test_submit_answer_incorrect")
 
-    @patch('PredictValueIndexGame.firestore')
+    @patch('predict_value_index.firestore')  # Correctly patch the firestore import from the module
     def test_save_result_to_firebase(self, mock_firestore):
         print("Starting test_save_result_to_firebase")
         try:
