@@ -4,6 +4,7 @@ from board import create_chessboard, add_labels
 from firebase_config import db
 import re
 import time
+import tkinter.ttk as ttk 
 
 class NQueensUI:
     def __init__(self, root, size, cell_size, offset):
@@ -11,6 +12,7 @@ class NQueensUI:
         self.size = size
         self.cell_size = cell_size
         self.offset = offset
+        self.board_locked = False
 
         # Set the window size to accommodate the chessboard from the start
         self.root.geometry(f"{size * cell_size + 2 * self.offset}x{size * cell_size + 2 * self.offset + 100}")
@@ -150,12 +152,15 @@ class NQueensUI:
         self.moves_label.place(x=center_x + 50, y=self.size * self.cell_size + self.offset + 50)
 
         # Label to display invalid move messages
-        self.invalid_move_label = tk.Label(self.root, text="", font=('Arial', 12), fg="red")
+        self.invalid_move_label = tk.Label(self.root, text="", font=('Arial', 12, 'bold'), fg="red")
         self.invalid_move_label.place(x=center_x, y=self.size * self.cell_size + 80, anchor=tk.CENTER)
         
         # Label to display final move messages
-        self.final_move_label = tk.Label(self.root, text="", font=('Arial', 12), fg="green")
+        self.final_move_label = tk.Label(self.root, text="", font=('Arial', 12, 'bold'), fg="green")
         self.final_move_label.place(x=center_x, y=self.size * self.cell_size + 80, anchor=tk.CENTER)
+        
+        self.final_move_label_taken = tk.Label(self.root, text="", font=('Arial', 12, 'bold'), fg="#F16032")
+        self.final_move_label_taken.place(x=center_x, y=self.size * self.cell_size + 80, anchor=tk.CENTER)
 
         self.canvas.bind("<Button-1>", self.on_click)
 
@@ -163,6 +168,9 @@ class NQueensUI:
         self.update_menu_state('game')
 
     def on_click(self, event):
+        if self.board_locked:
+            return  # Exit if the board is locked
+
         x = (event.x - self.offset) // self.cell_size
         y = (event.y - self.offset) // self.cell_size
 
@@ -170,113 +178,182 @@ class NQueensUI:
             action = self.game.place_or_remove_queen(y, x)
             self.update_board()
 
+            # Clear previous messages
+            self.invalid_move_label.config(text="")
+            self.final_move_label.config(text="")
+
             if action:
-                self.invalid_move_label.config(text="")  # Clear any previous invalid move message
+                # Valid move
+                self.moves_label.config(text=f"Moves: {self.game.moves_count}")
+                self.queens_left_label.config(text=f"♛ left: {self.game.queens_left}")
+
+                if self.game.queens_left == 0:
+                    if self.is_move_paths_taken(self.game.move_paths):
+                        self.final_move_label_taken.config(text="The answer has already been taken! Try again.")
+                        self.board_locked = True  # Lock the board
+                    else:
+                        end_time = time.time()
+                        game_time = round(end_time - self.start_time, 2)
+                        self.final_move_label.config(text=f"Congratulations {self.username.get()}! You have placed all queens correctly. Time taken: {game_time} seconds.")
+
+                        # Save the game record to Firebase
+                        db.collection("nqueens").add({
+                            "username": self.username.get(),
+                            "moves_count": self.game.moves_count,
+                            "game_time": game_time,
+                            "move_paths": self.game.move_paths
+                        })
             else:
-                self.invalid_move_label.config(text="Invalid Move: The queen can be attacked by another queen!")
+                # Invalid move
+                self.invalid_move_label.config(text="      Invalid Move:  The queen can  be  attacked  by  another  queen!")
 
-            self.moves_label.config(text=f"Moves: {self.game.moves_count}")
-            self.queens_left_label.config(text=f"♛ left: {self.game.queens_left}")
 
-            if self.game.queens_left == 0:
-                end_time = time.time()
-                game_time = round(end_time - self.start_time, 2)
-                self.final_move_label.config(text=f"All queens are placed! Well done, {self.username.get()}! Game Time: {game_time} seconds.")
-                self.save_game_data(self.username.get(), self.game.moves_count, game_time)
-                self.canvas.unbind("<Button-1>")  # Disable further clicks after completing the game
+                
+    def on_exit(self):
+        if self.board_locked:
+            # Unlock the board and perform any necessary cleanup
+            self.board_locked = False
+        self.master.destroy()  # Or any other logic to exit the game
 
-    def save_game_data(self, player_name, moves_count, game_time):
-        # Save the game data to Firebase Firestore
-        game_data = {
-            'player_name': player_name,
-            'moves_count': moves_count,
-            'game_time': game_time
-        }
-        db.collection('n_queens_game_data').add(game_data)
+
+    def is_move_paths_taken(self, current_move_paths):
+        records = db.collection("nqueens").get()
+        current_set = set(current_move_paths)
+
+        for record in records:
+            data = record.to_dict()
+            existing_move_paths = data['move_paths']
+            existing_set = set(existing_move_paths)
+
+            if current_set == existing_set:
+                return True
+
+        return False                
 
     def update_board(self):
-        self.canvas.delete("all")
-        create_chessboard(self.canvas, self.size, self.cell_size, self.offset)
-        for row in range(self.size):
-            for col in range(self.size):
-                if self.game.board[row][col] == 1:
-                    self.draw_queen(col, row)
+        self.canvas.delete("all")  # Clear previous board
+        for i in range(self.size):
+            for j in range(self.size):
+                x1 = j * self.cell_size + self.offset
+                y1 = i * self.cell_size + self.offset
+                x2 = x1 + self.cell_size
+                y2 = y1 + self.cell_size
 
-    def draw_queen(self, x, y):
-        self.canvas.create_text(
-            x * self.cell_size + self.cell_size // 2 + self.offset,
-            y * self.cell_size + self.cell_size // 2 + self.offset,
-            text="♛", font=('Arial', 28), fill="black"
-        )
+                if self.game.board[i][j] == 1:
+                    self.canvas.create_text((x1 + x2) // 2, (y1 + y2) // 2, text="♛", font=("Arial", 28), tags="queen")
+                else:
+                    self.canvas.create_rectangle(x1, y1, x2, y2, fill="#954535" if (i + j) % 2 == 0 else "#F5DEB3", outline="") 
+
+    def clear_game_screen(self):
+        if hasattr(self, 'canvas') and self.canvas:
+            self.canvas.delete("all")
+            self.canvas.pack_forget()
+
+        if hasattr(self, 'queens_left_label') and self.queens_left_label:
+            self.queens_left_label.destroy()
+
+        if hasattr(self, 'moves_label') and self.moves_label:
+            self.moves_label.destroy()
+
+        if hasattr(self, 'invalid_move_label') and self.invalid_move_label:
+            self.invalid_move_label.destroy()
+
+        if hasattr(self, 'final_move_label') and self.final_move_label:
+            self.final_move_label.destroy()
 
     def view_history(self):
         self.clear_all_screens()
+
+        # Hide the start screen elements
+        if hasattr(self, 'username_label'):
+            self.username_label.place_forget()
+        if hasattr(self, 'username_entry'):
+            self.username_entry.place_forget()
+        if hasattr(self, 'start_button'):
+            self.start_button.place_forget()
+        if hasattr(self, 'error_label'):
+            self.error_label.place_forget()
+        if hasattr(self, 'history_button'):
+            self.history_button.place_forget()
+
+        # Create a new frame to display the history
         self.history_frame = tk.Frame(self.root)
-        self.history_frame.pack(fill=tk.BOTH, expand=True)
+        self.history_frame.pack(pady=20, fill=tk.BOTH, expand=True)
 
-        history_title = tk.Label(self.history_frame, text="Game History", font=('Arial', 16, 'bold'))
-        history_title.pack(pady=10)
+        history_label = tk.Label(self.history_frame, text="Game History", font=('Arial', 16, 'bold'))
+        history_label.pack()
 
-        # Use Text widget with a monospaced font for proper column alignment
-        self.history_text = tk.Text(self.history_frame, font=('Courier', 11))
-        self.history_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # Create a frame to hold the Treeview and scrollbars
+        tree_frame = tk.Frame(self.history_frame)
+        tree_frame.pack(pady=10, fill=tk.BOTH, expand=True)
 
-        # Adding the table header with Courier font, size 14, and bold
-        header_font = ('Times new roman', 14, 'bold')
-        header = f"{'Player Name':<20}{'Moves':<10}{'Game Time (s)':<15}\n"
-        self.history_text.insert(tk.END, header)
-        self.history_text.tag_add("header", "1.0", "1.end")
-        self.history_text.tag_config("header", font=header_font)
+        # Create a Treeview widget to display history as a table
+        columns = ("Player Name", "Move Count", "Game Time", "Moves")
+        self.history_listbox = ttk.Treeview(tree_frame, columns=columns, show="headings")
 
-        self.history_text.insert(tk.END, "-" * 45 + "\n")  # Adding a separator
+        # Define column headings
+        self.history_listbox.heading("Player Name", text="Player Name")
+        self.history_listbox.heading("Move Count", text="Move Count")
+        self.history_listbox.heading("Game Time", text="Game Time (s)")
+        self.history_listbox.heading("Moves", text="Moves")
 
-        # Fetching game data and inserting it into the Text widget
-        game_data = db.collection('n_queens_game_data').stream()
-        for game in game_data:
-            game_info = game.to_dict()
+        # Define column widths with increased width for "Move Paths"
+        self.history_listbox.column("Player Name", anchor=tk.W, width=150)
+        self.history_listbox.column("Move Count", anchor=tk.CENTER, width=100)
+        self.history_listbox.column("Game Time", anchor=tk.CENTER, width=100)
+        self.history_listbox.column("Moves", anchor=tk.W, width=1500)
 
-            # Check if all necessary keys exist before accessing them
-            player_name = game_info.get('player_name', 'Unknown')
-            moves_count = game_info.get('moves_count', 'N/A')
-            game_time = game_info.get('game_time', 'N/A')
+        # Add vertical and horizontal scrollbars for the Treeview
+        scrollbar_y = tk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.history_listbox.yview)
+        scrollbar_x = tk.Scrollbar(tree_frame, orient=tk.HORIZONTAL, command=self.history_listbox.xview)
 
-            # Format and insert the game data into the Text widget
-            entry = f"{player_name:<20}{moves_count:<10}{game_time:<15}\n"
-            self.history_text.insert(tk.END, entry)
+        self.history_listbox.configure(yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
 
-        # Disable editing the Text widget
-        self.history_text.config(state=tk.DISABLED)
+        # Pack the scrollbars
+        scrollbar_y.pack(side=tk.RIGHT, fill=tk.Y)
+        scrollbar_x.pack(side=tk.BOTTOM, fill=tk.X)
 
-        self.back_button = tk.Button(self.history_frame, text="Back", font=('Arial', 12, 'bold'), fg="white", bg="#FF4040", command=self.back_to_start)
-        self.back_button.pack(pady=10)
+        # Pack the Treeview widget to expand and fill available space
+        self.history_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # Enable "Main Menu" option on history screen
+        # Insert data into Treeview
+        records = db.collection("nqueens").get()
+        for record in records:
+            data = record.to_dict()
+            self.history_listbox.insert("", "end", values=(data['username'], data['moves_count'], data['game_time'], data['move_paths']))
+
+        # Add a back button
+        self.back_button = tk.Button(self.history_frame, text="Back to Main Menu", command=self.back_to_start, font=('Arial', 12, 'bold'), fg="white", bg="#FF4040")
+        self.back_button.pack(pady=50)
+
+        # Update menu state to reflect that we're in the history screen
         self.update_menu_state('history')
 
 
-
-
     def back_to_start(self):
-        self.clear_all_screens()
+        # Clear the history frame if it exists
+        if self.history_frame:
+            self.history_frame.destroy()
+
+        # Recreate the start screen
         self.create_start_screen()
 
     def clear_game_screen(self):
-        if self.canvas:
-            self.canvas.destroy()
-            self.canvas = None
-        if hasattr(self, 'invalid_move_label'):
-            self.invalid_move_label.destroy()
-            del self.invalid_move_label
-        if hasattr(self, 'moves_label'):
-            self.moves_label.destroy()
-            del self.moves_label
-        if hasattr(self, 'queens_left_label'):
+        if hasattr(self, 'canvas') and self.canvas:
+            self.canvas.delete("all")
+            self.canvas.pack_forget()
+
+        if hasattr(self, 'queens_left_label') and self.queens_left_label:
             self.queens_left_label.destroy()
-            del self.queens_left_label
-        if hasattr(self, 'final_move_label'):
+
+        if hasattr(self, 'moves_label') and self.moves_label:
+            self.moves_label.destroy()
+
+        if hasattr(self, 'invalid_move_label') and self.invalid_move_label:
+            self.invalid_move_label.destroy()
+
+        if hasattr(self, 'final_move_label') and self.final_move_label:
             self.final_move_label.destroy()
-            del self.final_move_label
-        self.root.update_idletasks()
 
     def clear_all_screens(self):
         self.clear_game_screen()
