@@ -7,7 +7,7 @@ from firebase_admin import credentials, firestore
 from scipy.optimize import linear_sum_assignment
 
 # Initialize Firebase
-cred = credentials.Certificate('C:/Users/nilupul.r/hello/.venv/pdsa-cw-firebase-adminsdk-fekak-92d0a01b44.json')
+cred = credentials.Certificate('pdsa-cw-firebase-adminsdk-fekak-92d0a01b44.json')
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
