@@ -1,42 +1,85 @@
 import threading
+import time
+from firebase_config import db
 
-class NQueensThread(threading.Thread):
-    def __init__(self, start_row, n, solutions):
-        super().__init__()
-        self.start_row = start_row
-        self.n = n
-        self.solutions = solutions
-
-    def run(self):
-        board = [-1] * self.n
-        solve(self.start_row, board, self.n, self.solutions)
-
-def solve(row, board, n, solutions):
-    if row == n:
-        solutions.append(board[:])
-        return
-    for col in range(n):
-        if is_safe(row, col, board):
-            board[row] = col
-            solve(row + 1, board, n, solutions)
-
-def is_safe(row, col, board):
-    for i in range(row):
-        if board[i] == col or abs(board[i] - col) == abs(i - row):
+# Function to check if a queen can be placed on board[row][col]
+def is_safe(board, row, col, n):
+    for i in range(col):
+        if board[row][i] == 1:
+            return False
+    for i, j in zip(range(row, -1, -1), range(col, -1, -1)):
+        if board[i][j] == 1:
+            return False
+    for i, j in zip(range(row, n, 1), range(col, -1, -1)):
+        if board[i][j] == 1:
             return False
     return True
 
-if __name__ == "__main__":
+# Recursive function to solve problem
+def solve_queens(board, col, solutions, n):
+    if col >= n:
+        solution = [(i, row.index(1)) for i, row in enumerate(board)]
+        solutions.append(solution)
+        return True
+    
+    res = False
+    for i in range(n):
+        if is_safe(board, i, col, n):
+            board[i][col] = 1
+            res = solve_queens(board, col + 1, solutions, n) or res
+            board[i][col] = 0
+    
+    return res
+
+# Thread worker function
+def find_solutions(thread_id, solutions, n):
+    board = [[0]*n for _ in range(n)]
+    solve_queens(board, 0, solutions, n)
+
+# Function to save solutions to Firestore
+def save_to_firestore(solutions):
+    collection_ref = db.collection('threaded_solutions')
+    for idx, solution in enumerate(solutions):
+        # Convert each solution from a list of tuples to a list of strings
+        solution_str = [f"({row},{col})" for row, col in solution]
+        collection_ref.add({"solution": solution_str})
+        print(f"Solution {idx + 1} saved")
+
+
+def main():
     n = 16
     solutions = []
     threads = []
 
-    for i in range(n):
-        thread = NQueensThread(i, n, solutions)
-        threads.append(thread)
+    # Start time
+    start_time = time.time()
+
+    # Create and start 4 threads separately
+    thread1 = threading.Thread(target=find_solutions, args=(1, solutions, n))
+    thread2 = threading.Thread(target=find_solutions, args=(2, solutions, n))
+    thread3 = threading.Thread(target=find_solutions, args=(3, solutions, n))
+    thread4 = threading.Thread(target=find_solutions, args=(4, solutions, n))
+
+    threads.extend([thread1, thread2, thread3, thread4])
+
+    # Start all threads
+    for thread in threads:
         thread.start()
 
+    # Wait for all threads to complete
     for thread in threads:
         thread.join()
 
-    print(f"Number of solutions: {len(solutions)}")
+    # End time
+    end_time = time.time()
+
+    # Save distinct solutions to Firestore
+    distinct_solutions = list(set(tuple(sol) for sol in solutions))
+    save_to_firestore(distinct_solutions)
+
+    # Print results
+    print(f"Number of distinct solutions: {len(distinct_solutions)}")
+    print(f"Time taken: {end_time - start_time} seconds")
+
+if __name__ == "__main__":
+    main()
