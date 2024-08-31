@@ -295,7 +295,20 @@ class TowerOfHanoi:
             return
         self.name_error_label.config(text="")
         self.show_frame("DiskEntry")
-
+        
+    def generate_color_for_disk(self, disk_size, num_disks):
+        if num_disks <= 3:
+            colors = [
+                "red",
+                "blue",
+                "black",
+                "green",
+            ]  # Four colors for 4 or fewer disks
+            return colors[disk_size % len(colors)]
+        else:
+            return "#{:06x}".format(random.randint(0, 0xFFFFFF))  # Random color
+        
+#--------------------------------------------------Game Logic--------------------------------------------------
     def start_game(self):
         
         num_disks_str = self.num_disks.get()
@@ -305,8 +318,6 @@ class TowerOfHanoi:
         num_disks = int(float(num_disks_str))  # Convert validated string to integer
         self.num_disks_int.set(num_disks)
         # Clear any error messages
-        self.disk_error_label.config(text="")
-
         self.disk_error_label.config(text="")
         self.start_time = time.time()
         self.num_moves = 0
@@ -324,18 +335,6 @@ class TowerOfHanoi:
         self.start_new_game_button.pack_forget()
         self.back_to_main_menu_button.pack_forget()
         self.show_frame("Game")
-
-    def generate_color_for_disk(self, disk_size, num_disks):
-        if num_disks <= 3:
-            colors = [
-                "red",
-                "blue",
-                "black",
-                "green",
-            ]  # Four colors for 4 or fewer disks
-            return colors[disk_size % len(colors)]
-        else:
-            return "#{:06x}".format(random.randint(0, 0xFFFFFF))  # Random color
 
     def draw_disks(self):
         self.canvas.delete("disk")  # Only delete disks, not rods
@@ -474,6 +473,8 @@ class TowerOfHanoi:
             self.save_game_result()  # Update method name
             self.start_new_game_button.pack(pady=10)
             self.back_to_main_menu_button.pack(pady=10)
+            
+#--------------------------------------------------Game Logic------------------------------------------------------------------------
 
     def start_new_game(self):
         self.result_label.config(text="")
