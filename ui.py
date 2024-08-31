@@ -194,7 +194,8 @@ class NQueensUI:
                     else:
                         end_time = time.time()
                         game_time = round(end_time - self.start_time, 2)
-                        self.final_move_label.config(text=f"Congratulations {self.username.get()}! You have placed all queens correctly. Time taken: {game_time} seconds.")
+                        self.final_move_label.config(text=f"Congratulations {self.username.get()}! You have placed all  queens correctly. Time taken: {game_time} seconds.")
+                        self.board_locked = True
 
                         # Save the game record to Firebase
                         db.collection("nqueens").add({
