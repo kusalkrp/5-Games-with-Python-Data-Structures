@@ -118,10 +118,20 @@ class NQueensUI:
 
         # Validate that the username only contains letters and numbers
         if re.match("^[A-Za-z0-9]+$", username):
-            self.error_label.config(text="")  # Clear any previous error message
-            self.start_game()
+            # Check if the username is unique
+            if self.is_username_taken(username):
+                self.error_label.config(text="Username already has been taken!")
+            else:
+                self.error_label.config(text="")  # Clear any previous error message
+                self.start_game()
         else:
             self.error_label.config(text="Invalid Input: Username can only contain letters and numbers.")
+
+    def is_username_taken(self, username):
+        # Query Firestore to check if the username already exists
+        query = db.collection("nqueens").where("username", "==", username)
+        records = query.get()
+        return len(records) > 0
 
     def start_game(self):
         # Clear the existing widgets (username entry, start button, and error label)
