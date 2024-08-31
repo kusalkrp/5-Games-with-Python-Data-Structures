@@ -118,20 +118,10 @@ class NQueensUI:
 
         # Validate that the username only contains letters and numbers
         if re.match("^[A-Za-z0-9]+$", username):
-            # Check if the username is unique
-            if self.is_username_taken(username):
-                self.error_label.config(text="Username already has been taken!")
-            else:
-                self.error_label.config(text="")  # Clear any previous error message
-                self.start_game()
+            self.error_label.config(text="")  # Clear any previous error message
+            self.start_game()
         else:
             self.error_label.config(text="Invalid Input: Username can only contain letters and numbers.")
-
-    def is_username_taken(self, username):
-        # Query Firestore to check if the username already exists
-        query = db.collection("nqueens").where("username", "==", username)
-        records = query.get()
-        return len(records) > 0
 
     def start_game(self):
         # Clear the existing widgets (username entry, start button, and error label)
@@ -204,7 +194,7 @@ class NQueensUI:
                     else:
                         end_time = time.time()
                         game_time = round(end_time - self.start_time, 2)
-                        self.final_move_label.config(text=f"Congratulations {self.username.get()}! You have placed all  queens correctly. Time taken: {game_time} seconds.")
+                        self.final_move_label.config(text=f"Congratulations {self.username.get()}! You have placed all queens correctly. Time taken: {game_time} seconds.")
                         self.board_locked = True
 
                         # Save the game record to Firebase
@@ -214,6 +204,8 @@ class NQueensUI:
                             "game_time": game_time,
                             "move_paths": self.game.move_paths
                         })
+                        # Check and reset solutions if all have been found
+                        # self.check_and_reset_solutions()
             else:
                 # Invalid move
                 self.invalid_move_label.config(text="      Invalid Move:  The queen can  be  attacked  by  another  queen!")
@@ -224,7 +216,7 @@ class NQueensUI:
         if self.board_locked:
             # Unlock the board and perform any necessary cleanup
             self.board_locked = False
-        self.master.destroy()  # Or any other logic to exit the game
+        self.master.destroy()  
 
 
     def is_move_paths_taken(self, current_move_paths):
@@ -381,5 +373,6 @@ class NQueensUI:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = NQueensUI(root, size=8, cell_size=40, offset=20)
+    root.title("16-Queens Problem")
+    app = NQueensUI(root, size=16, cell_size=40, offset=40)
     root.mainloop()
