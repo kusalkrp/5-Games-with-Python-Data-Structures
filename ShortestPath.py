@@ -50,7 +50,7 @@ class ShortestPath:
             print(f"Error initializing Firebase: {e}")
 
 
-    # Bellman-Ford algorithm------------------------------------------------------------------------------------------------------------------------------------
+    # Bellman-Ford algorithm
     def bellman_ford(self, graph, start):
         distances = {city: float('inf') for city in graph}
         distances[start] = 0
@@ -70,15 +70,13 @@ class ShortestPath:
                     return None, None
         return distances, predecessors
 
-    # Dijkstra's algorithm with plotting-------------------------------------------------------------------------------------------------------------------------
-    def dijkstra(self, graph, start, display_step_callback):
+    # Dijkstra's algorithm with plotting
+    def dijkstra(self, graph, start):
         distances = {city: float('inf') for city in graph}
         distances[start] = 0
         predecessors = {city: None for city in graph}
         priority_queue = [(0, start)]
         visited = set()
-
-        display_step_callback(distances, highlight=[])  # Display initial distances
 
         while priority_queue:
             current_distance, current_city = heapq.heappop(priority_queue)
@@ -94,8 +92,6 @@ class ShortestPath:
                     distances[neighbor] = distance
                     predecessors[neighbor] = current_city
                     heapq.heappush(priority_queue, (distance, neighbor))
-
-            display_step_callback(distances, highlight=list(visited))  # Update display after processing each city
 
         return distances, predecessors
 
@@ -120,7 +116,7 @@ class ShortestPath:
             print(f"Game result saved to Firebase with game ID: {game_id}")
         except Exception as e:
             print(f"An error occurred while saving to Firestore: {e}")
- #-----------------------------------------------------------------------------------------------------------------------------generating a random matrix
+
     # Generate a random undirected graph
     def generate_random_graph(self):
         graph = {city: {} for city in self.cities}
@@ -182,6 +178,7 @@ class ShortestPath:
         # Center the frame within the main window
         self.start_frame.grid(row=0, column=0, padx=(root.winfo_screenwidth() - 1250) // 2, pady=(root.winfo_screenheight() - 650) // 2)
 
+
         menu_bar = tk.Menu(root)  # Attach the menu bar to the main window
         root.config(menu=menu_bar)
 
@@ -208,7 +205,7 @@ class ShortestPath:
         # Matrix display
         matrix_frame = tk.Frame(self.game_frame)
         matrix_frame.grid(row=3, column=2, columnspan=2)
-
+        
         for i, city in enumerate(self.cities):
             # Row and column headers with enhanced styles
             tk.Label(matrix_frame, text=city, borderwidth=2, relief="solid", padx=10, pady=5, 
@@ -335,13 +332,12 @@ class ShortestPath:
     def new_game(self):
         self.graph = self.generate_random_graph()
         self.display_graph()
-        # self.draw_graph()
 
         # Randomly select a starting city and set it in the dropdown
         selected_city = random.choice(self.cities)
         self.start_city_var.set(selected_city)  # Update dropdown display with selected city
 
-    # Display the graph on the UI
+    # Display the graph on the UI =============================================================================================================================================
     def display_graph(self):
         for i, city1 in enumerate(self.cities):
             for j, city2 in enumerate(self.cities):
@@ -350,38 +346,6 @@ class ShortestPath:
                 else:
                     self.matrix_labels[i][j].config(text="")
 
-    # Draw the undirected graph using NetworkX-----------------------------------------------NOT USED CURRENTLY                           
-    def draw_graph(self):
-        G = nx.Graph()
-        for city, edges in self.graph.items():
-            for destination, weight in edges.items():
-                G.add_edge(city, destination, weight=weight)
-
-        pos = nx.spring_layout(G)
-        self.graph_plot.clear()
-        nx.draw(G, pos, ax=self.graph_plot, with_labels=True)
-        edge_labels = nx.get_edge_attributes(G, 'weight')
-        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, ax=self.graph_plot)
-        self.canvas.draw()
-
-    # Illustrate each step of Dijkstra's algorithm-------------------------------------------NOT USED CURRENTLY
-    def display_step_callback(self, distances, highlight=[]):
-        G = nx.Graph()
-        for city, edges in self.graph.items():
-            for destination, weight in edges.items():
-                G.add_edge(city, destination, weight=weight)
-
-        pos = nx.spring_layout(G)
-        # self.graph_plot.clear()
-        nx.draw(G, pos, ax=self.graph_plot, with_labels=True)
-        edge_labels = nx.get_edge_attributes(G, 'weight')
-        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, ax=self.graph_plot)
-
-        # Highlight visited nodes
-        nx.draw_networkx_nodes(G, pos, nodelist=highlight, node_color='r', ax=self.graph_plot)
-
-        self.canvas.draw()
-        time.sleep(1)
         
     def validate_inputs(self):
         valid = True
@@ -389,10 +353,10 @@ class ShortestPath:
         for city, entry in self.distance_entries.items():
             distance = entry.get()
             try:
-                # Checking if the distance is a non-negative integer or float
+                # Check if the distance is a non-negative integer or float
                 if not (distance.isdigit() or float(distance) >= 0):
                     raise ValueError("Invalid distance")
-                self.distance_error_labels[city].config(text="") 
+                self.distance_error_labels[city].config(text="")  # Clear error message if valid
             except ValueError:
                 self.distance_error_labels[city].config(text="Please enter a valid non-negative number")
                 valid = False
@@ -405,12 +369,13 @@ class ShortestPath:
                 self.path_error_labels[city].config(text="Invalid city in path")
                 valid = False
             else:
-                self.path_error_labels[city].config(text="")
+                self.path_error_labels[city].config(text="")  # Clear error message if valid
 
         return valid
 
     
     def check_answer(self):
+        #validation statment
         if not self.validate_inputs():
             print("Invalid input detected")
             return
@@ -429,14 +394,15 @@ class ShortestPath:
         bellman_time = time.time() - start_time_bell
 
         start_time_dij = time.time()
-        dijkstra_result, dijkstra_predecessors = self.dijkstra(self.graph, start_city, self.display_step_callback)
+        dijkstra_result, dijkstra_predecessors = self.dijkstra(self.graph, start_city)
         print('dijk ans ' + json.dumps(dijkstra_result))
         print('dijk pred ' + json.dumps(dijkstra_predecessors))
         dijkstra_time = time.time() - start_time_dij
 
         if bellman_result and dijkstra_result:
             correct_answer = dijkstra_result  # Since graph has no negative weights
-            correct_paths = {city: self.reconstruct_path(dijkstra_predecessors, start_city, city) for city in self.cities if city != start_city}# ----------------------------------------- generating correct user paths
+            correct_paths = {city: self.reconstruct_path(dijkstra_predecessors, start_city, city) for city in self.cities if city != start_city}
+            print("correct_paths= "+json.dumps(correct_paths))
 
             # Retrieve the player's answers from the entry fields
             player_answer = {}
@@ -444,7 +410,7 @@ class ShortestPath:
             all_correct = True
 
             for city in self.cities:
-                if city != start_city:
+                # if city != start_city:
                     distance_str = self.distance_entries[city].get()
                     path_str = self.path_entries[city].get()
                     print(" ans " + json.dumps(distance_str))
@@ -469,16 +435,23 @@ class ShortestPath:
                 # Check distances
                 if player_answer[city] != correct_answer[city]:
                     all_correct = False
-                    messagebox.showinfo("Result", f"Incorrect distance for {city}. Correct distance is {correct_answer[city]}.")
+                    
+                    self.distance_error_labels[city].config(text=f"Incorrect distance for {city}. Correct distance is {correct_answer[city]}.")
 
                 # Check paths
-                correct_path_str = ','.join(correct_paths[city])
+                if city != start_city:
+                    correct_path_str = ','.join(correct_paths[city])
                 player_path_str = ','.join(player_paths[city])
-                if player_paths[city] != correct_paths[city]:
-                    all_correct = False
-                    messagebox.showinfo("Result", f"Incorrect path for {city}. Correct path is {correct_path_str}.")
+                print("player_path_str= "+ json.dumps(player_path_str))
+                print("player_paths= "+json.dumps(player_paths))
+                if city != start_city:
+                    if player_paths[city] != correct_paths[city]:
+                        all_correct = False
+                        
+                        self.path_error_labels[city].config(text=f"Incorrect path for {city}. Correct path is {correct_path_str}.")
+                else:
+                    self.path_error_labels[city].config(text=f"Incorrect path for {city}. Correct path is {city}.")
                     
-            # self.save_to_database(player_name, player_answer, player_paths, correct_answer, correct_paths, bellman_time, dijkstra_time)
             
             # Provide final feedback
             if all_correct:
