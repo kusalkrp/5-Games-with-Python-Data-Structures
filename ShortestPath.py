@@ -21,9 +21,8 @@ class ShortestPath:
         self.master.configure(bg="#ffffff")
         self.master.resizable(False, False)
         
-        #my 
         self.player_name = tk.StringVar()
-        
+        #my 
         self.cities = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
         self.graph = {}
         self.matrix_labels = []
@@ -33,6 +32,7 @@ class ShortestPath:
         print("start")
         self.distance_entries = {}
         self.path_entries = {}
+        self.start_time = None
 
         self.frames = {}
         self.current_frame = None
@@ -55,11 +55,9 @@ class ShortestPath:
     def create_frames(self):
         self.frames["NameEntry"] = tk.Frame(self.master, bg="#ffffff")
         self.frames["Play"] = tk.Frame(self.master, bg="#ffffff")
-        # self.frames["ViewResults"] = tk.Frame(self.master, bg="#ffffff")
 
         self.create_name_entry_frame()
         self.create_play_game_frame()
-        # self.create_view_results_frame()
         
     def show_frame(self, frame_name):
         frame = self.frames[frame_name]
@@ -99,7 +97,7 @@ class ShortestPath:
             activebackground="#e74755",
             activeforeground="white",
         ).pack(pady=20)
-        
+    
     
     def create_play_game_frame(self):
         frame = self.frames["Play"]
@@ -176,8 +174,6 @@ class ShortestPath:
                 row_labels.append(label)  # Append label to the row list
 
             self.matrix_labels.append(row_labels)
-            
-
 
         self.distance_entries = {}
         self.path_entries = {}
@@ -259,6 +255,7 @@ class ShortestPath:
     def start_game(self):
         self.graph = self.generate_random_graph()
         self.display_graph()
+        self.start_time = time.time()
 
         # Randomly select a starting city and set it in the dropdown
         selected_city = random.choice(self.cities)
@@ -431,7 +428,6 @@ class ShortestPath:
                 # Check distances
                 if player_answer[city] != correct_answer[city]:
                     all_correct = False
-                    # messagebox.showinfo("Result", f"Incorrect distance for {city}. Correct distance is {correct_answer[city]}.")
                     self.distance_error_labels[city].config(text=f"Incorrect distance for {city}. Correct distance is {correct_answer[city]}.")
 
                 # Check paths
@@ -447,14 +443,13 @@ class ShortestPath:
                         self.path_error_labels[city].config(text=f"Incorrect path for {city}. Correct path is {correct_path_str}.")
                 else:
                     self.path_error_labels[city].config(text=f"Incorrect path for {city}. Correct path is {city}.")
-                    
-                    
-            # self.save_to_database(player_name, player_answer, player_paths, correct_answer, correct_paths, bellman_time, dijkstra_time)
             
             # Provide final feedback
             if all_correct:
-                messagebox.showinfo("Result", "Correct! You found the shortest paths.")
-                self.save_to_database(player_name, player_answer, player_paths, correct_answer, correct_paths, bellman_time, dijkstra_time)
+                end_time = time.time()
+                play_time = end_time - self.start_time
+                messagebox.showinfo("Result", f"Correct! You found the shortest paths. You took {play_time} seconds")
+                self.save_to_database(player_name, play_time, player_answer,  player_paths, correct_answer, correct_paths, bellman_time, dijkstra_time)
             else:
                 messagebox.showinfo("Result", "Some answers were incorrect. Please check the distances and paths and try again.")
         else:
@@ -471,12 +466,13 @@ class ShortestPath:
         return path
     
     
-    def save_to_database(self, player_name, player_answer, player_paths, correct_answer, correct_paths, bellman_ford_time, dijkstra_time):
+    def save_to_database(self, player_name, play_time, player_answer, player_paths, correct_answer, correct_paths, bellman_ford_time, dijkstra_time):
         game_id = str(uuid.uuid4())  # Generate a unique ID for the game session
 
         game_data = {
             "game_id": game_id,
-            "player_name": player_name,  
+            "player_name": player_name,
+            "player_play_time": play_time,
             "player_answer": player_answer,
             "player_paths": player_paths,
             "correct_answer": correct_answer,
@@ -495,8 +491,6 @@ class ShortestPath:
             
             
     def start_new_game(self):
-        # self.distance_error_labels.config(text="")
-        # self.path_error_labels.config(text="")
         self.distance_entries = {}
         self.path_entries = {}
         self.graph = {}
@@ -504,20 +498,20 @@ class ShortestPath:
         self.player_name_error_label.config(text="")
         self.player_name.set("")
         self.show_frame("NameEntry")
-    
-#//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        
     def create_view_results_frame(self):
         frame = tk.Frame(self.master)
 
         tk.Label(frame, text="Results for All Players:", font=("Arial", 14)).pack(pady=20)
 
         # Create Treeview
-        columns = ("player_name", "player_answer", "player_paths", "correct_answer",  "correct_paths", "bellman_ford_time", "dijkstra_time")
+        columns = ("player_name", "play_time", "player_answer", "player_paths", "correct_answer",  "correct_paths", "bellman_ford_time", "dijkstra_time")
         self.results_tree = ttk.Treeview(frame, columns=columns, show="headings")
         self.results_tree.pack(pady=10, fill="both", expand=True)
 
         # Define column headings
         self.results_tree.heading("player_name", text="Name", anchor="w")
+        self.results_tree.heading("play_time", text="Time_Taken_in_seconds", anchor="w")
         self.results_tree.heading("player_answer", text="Distances", anchor="w")
         self.results_tree.heading("player_paths", text="Paths", anchor="w")
         self.results_tree.heading("correct_answer", text="Algo_distance", anchor="w")
@@ -527,6 +521,7 @@ class ShortestPath:
 
         # Define column widths
         self.results_tree.column("player_name", width=100, anchor="w")
+        self.results_tree.column("play_time", width=100, anchor="w")
         self.results_tree.column("player_answer", width=200, anchor="w")
         self.results_tree.column("player_paths", width=200, anchor="w")
         self.results_tree.column("correct_answer", width=200, anchor="w")
@@ -551,8 +546,8 @@ class ShortestPath:
             activeforeground="white",
         ).pack(pady=20)
         
-        self.frames["ViewResults"] = frame  # Add to frames dictionary
-        self.show_frame("ViewResults")  # Show this frame
+        self.frames["ViewResults"] = frame  
+        self.show_frame("ViewResults")  
     
     def get_all_results(self):
         # Retrieve all documents from the 'ShortestPath' collection
@@ -574,6 +569,7 @@ class ShortestPath:
             for result in results:
                 self.results_tree.insert("", "end", values=(
                     result['player_name'],
+                    result['player_play_time'],
                     result['player_answer'],
                     result['player_paths'],
                     result['correct_answer'],
@@ -583,7 +579,7 @@ class ShortestPath:
                 ))
         else:
             # If no results, you can optionally add a message or handle this case
-            self.results_tree.insert("", "end", values=("No results found", "", "", "", "", "", ""))
+            self.results_tree.insert("", "end", values=("No results found", "", "", "", "", "", "", ""))
         
     def exit(self):
         self.master.destroy()

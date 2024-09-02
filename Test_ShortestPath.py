@@ -167,6 +167,7 @@ class TestShortestPath(unittest.TestCase):
                 mock_collection.return_value.document.return_value = mock_document
                 self.app.save_to_database(
                     player_name='TestPlayer',
+                    play_time=70.0011,
                     player_answer={'A': 0, 'B': 1},
                     player_paths={'A': ['A'], 'B': ['A', 'B']},
                     correct_answer={'A': 0, 'B': 1},
