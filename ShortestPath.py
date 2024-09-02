@@ -14,110 +14,256 @@ from firebase_admin import credentials, firestore
 from tkinter import ttk
 
 class ShortestPath:
-    def __init__(self):
+    def __init__(self, master):
+        self.master = master
+        self.master.title("Shortest Path Game")
+        self.master.geometry("1510x950")  # Increased window size
+        self.master.configure(bg="#ffffff")
+        self.master.resizable(False, False)
+        
+        #my 
+        self.player_name = tk.StringVar()
         
         self.cities = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
         self.graph = {}
         self.matrix_labels = []
-        self.player_name_entry = None
         self.start_city_var = None
         self.canvas = None
         self.graph_plot = None
         print("start")
         self.distance_entries = {}
         self.path_entries = {}
-        self.start_frame = None
-        self.game_frame = None
-        print("initalized")
+
+        self.frames = {}
+        self.current_frame = None
+
         self.initialize_firebase()
-        self.db = firestore.client()
-        self.setup_ui()
-        
-        
+        self.create_frames()
+        # self.create_menu()
+        self.show_frame("NameEntry")
         
     def initialize_firebase(self):
-    # Use your own Firebase credentials
         try:
-            if not firebase_admin._apps:  # Check if Firebase is already initialized
-                cred = credentials.Certificate(
-                    r'pdsa-cw-firebase-adminsdk-fekak-92d0a01b44.json'
-                )
+            if not firebase_admin._apps:
+                cred = credentials.Certificate(r'pdsa-cw-firebase-adminsdk-fekak-92d0a01b44.json')
                 firebase_admin.initialize_app(cred)
-                print("Firebase initialized.")
-            else:
-                print("Firebase already initialized.")
-        except ValueError as e:
-            print(f"Error initializing Firebase: {e}")
-
-
-    # Bellman-Ford algorithm
-    def bellman_ford(self, graph, start):
-        distances = {city: float('inf') for city in graph}
-        distances[start] = 0
-        predecessors = {city: None for city in graph}
-
-        for _ in range(len(graph) - 1):
-            for u in graph:
-                for v in graph[u]:
-                    if distances[u] + graph[u][v] < distances[v]:
-                        distances[v] = distances[u] + graph[u][v]
-                        predecessors[v] = u
-
-        # Check for negative weight cycles
-        for u in graph:
-            for v in graph[u]:
-                if distances[u] + graph[u][v] < distances[v]:
-                    return None, None
-        return distances, predecessors
-
-    # Dijkstra's algorithm with plotting
-    def dijkstra(self, graph, start):
-        distances = {city: float('inf') for city in graph}
-        distances[start] = 0
-        predecessors = {city: None for city in graph}
-        priority_queue = [(0, start)]
-        visited = set()
-
-        while priority_queue:
-            current_distance, current_city = heapq.heappop(priority_queue)
-
-            if current_city in visited:
-                continue
-            visited.add(current_city)
-
-            for neighbor, weight in graph[current_city].items():
-                distance = current_distance + weight
-
-                if distance < distances[neighbor]:
-                    distances[neighbor] = distance
-                    predecessors[neighbor] = current_city
-                    heapq.heappush(priority_queue, (distance, neighbor))
-
-        return distances, predecessors
-
-    def save_to_database(self, player_name, player_answer, player_paths, correct_answer, correct_paths, bellman_ford_time, dijkstra_time):
-        game_id = str(uuid.uuid4())  # Generate a unique ID for the game session
-
-        game_data = {
-            "game_id": game_id,
-            "player_name": player_name,  
-            "player_answer": player_answer,
-            "player_paths": player_paths,
-            "correct_answer": correct_answer,
-            "correct_paths": correct_paths,  
-            "bellman_ford_time": bellman_ford_time,
-            "dijkstra_time": dijkstra_time,
-        }
-
-        # Save the game result to Firebase with a unique document ID
-        try:
-            print("done")
-            self.db.collection("ShortestPath").document(game_id).set(game_data)
-            print(f"Game result saved to Firebase with game ID: {game_id}")
+            self.db = firestore.client()
         except Exception as e:
-            print(f"An error occurred while saving to Firestore: {e}")
+            print(f"Error initializing Firebase: {e}")
+            messagebox.showerror("Firebase Error", f"Failed to initialize Firebase: {e}")
+            
+    def create_frames(self):
+        self.frames["NameEntry"] = tk.Frame(self.master, bg="#ffffff")
+        self.frames["Play"] = tk.Frame(self.master, bg="#ffffff")
+        # self.frames["ViewResults"] = tk.Frame(self.master, bg="#ffffff")
 
-    # Generate a random undirected graph
+        self.create_name_entry_frame()
+        self.create_play_game_frame()
+        # self.create_view_results_frame()
+        
+    def show_frame(self, frame_name):
+        frame = self.frames[frame_name]
+        frame.pack(fill="both", expand=True)
+        if self.current_frame:
+            self.current_frame.pack_forget()
+        self.current_frame = frame
+        
+    def create_name_entry_frame(self):
+        frame = self.frames["NameEntry"]
+
+        tk.Label(
+            frame,
+            text="Enter Your Name:",
+            font=("Arial", 18, "bold"),
+            fg="#fa0000",
+            bg="#ffffff",
+        ).pack(pady=20)
+        tk.Entry(frame, textvariable=self.player_name, font=("Arial", 14)).pack(pady=10)
+
+        self.player_name_error_label = tk.Label(frame, text="", fg="red", font=("Arial", 12))
+        self.player_name_error_label.pack(pady=5)
+
+        tk.Button(
+            frame,
+            text="Next",
+            command=self.go_to_game_frame,
+            font=("Arial", 12, "bold"),
+            bg="#f86b53",
+            fg="white",
+            padx=10,
+            pady=5,
+            relief="raised",
+            borderwidth=2,
+            width=20,
+            height=1,
+            activebackground="#e74755",
+            activeforeground="white",
+        ).pack(pady=20)
+        
+    
+    def create_play_game_frame(self):
+        frame = self.frames["Play"]
+
+        # Create a menu bar
+        menu_bar = tk.Menu(frame)
+        frame.master.config(menu=menu_bar)  # Attach the menu bar to the main window
+
+        # Create a 'Game' menu
+        game_menu = tk.Menu(menu_bar, tearoff=0)
+        menu_bar.add_cascade(label="Menu", menu=game_menu)
+
+        # Add 'Start New Game', 'View Results', and 'Exit' options
+        game_menu.add_command(label="Start New Game", command=self.start_new_game)
+        game_menu.add_command(label="View Results", command=self.create_view_results_frame)
+        game_menu.add_command(label="Exit", command=self.exit)
+        self.start_city_var = tk.StringVar(frame)
+
+        # Instructions and Error Labels
+        self.instructions_label = tk.Label(
+            frame,
+            text="The starting city is: ",
+            font=("Arial", 15),
+            bg="#ffffff",
+            fg="blue",
+        )
+        self.instructions_label.pack(pady=5)
+        self.instructions_label = tk.Label(
+            frame,
+            textvariable=self.start_city_var,
+            font=("Arial", 15),
+            bg="#ffffff",
+            fg="blue",
+        )
+        self.instructions_label.pack(pady=10)
+
+        self.error_label = tk.Label(frame, text="", fg="red", font=("Arial", 12))
+        self.error_label.pack(pady=5)
+        
+        for i, city in enumerate(self.cities):
+            # Column headers with enhanced styles
+            tk.Label(frame, text=city, borderwidth=2, relief="solid", padx=10, pady=5,
+                     font=("Arial", 12, "bold"), bg="#f0f0f0", fg="#333333").pack(side="left", padx=2)
+
+        # Creating a container frame for row labels and matrix cells
+        for i, city in enumerate(self.cities):
+            row_frame = tk.Frame(frame)
+            row_frame.pack(side="top", fill="x")
+
+            # Row headers with enhanced styles
+            tk.Label(row_frame, text=city, borderwidth=2, relief="solid", padx=10, pady=5,
+                     font=("Arial", 12, "bold"), bg="#f0f0f0", fg="#333333").pack(side="left", padx=5)
+
+            # List to hold each row's labels
+            row_labels = []
+
+            # Matrix labels with enhanced styles and diagonal logic
+            for j in range(len(self.cities)):
+                label = tk.Label(row_frame, text="", borderwidth=1, relief="solid", padx=10, pady=5,
+                                 font=("Arial", 12), bg="#ffffff", fg="#333333")
+
+                if j < i:
+                    # Normal values on the left side of the diagonal
+                    label.pack(side="left", padx=5)
+                elif j == i:
+                    # Diagonal cells
+                    label.config(bg="#cccccc")  # Highlight diagonal (optional)
+                    label.pack(side="left", padx=5)
+                else:
+                    # Hide values on the right side of the diagonal
+                    label.config(text="", bg="#000000", fg="#000000")  # Set background to indicate it's hidden
+                    label.pack(side="left", padx=5)
+
+                row_labels.append(label)  # Append label to the row list
+
+            self.matrix_labels.append(row_labels)
+            
+
+
+        self.distance_entries = {}
+        self.path_entries = {}
+        self.distance_error_labels = {}  # To store error labels for distance inputs
+        self.path_error_labels = {}  # To store error labels for path inputs
+
+        for i, city in enumerate(self.cities):
+            # Create a container frame for each row to align all widgets horizontally
+            row_frame = tk.Frame(frame, bg="#ffffff")
+            row_frame.pack(fill="x", padx=5, pady=2)
+
+            # Distance entry label
+            tk.Label(row_frame, text=f"Distance to {city}:", font=("Arial", 13, "bold"), fg="#587cd6", bg="#ffffff").pack(side="left", padx=5)
+    
+            # Distance entry field
+            self.distance_entries[city] = tk.Entry(row_frame, font=("Arial", 13))
+            self.distance_entries[city].pack(side="left", padx=5)
+
+            # Error label for distance entry
+            self.distance_error_labels[city] = tk.Label(row_frame, text="", fg="red", font=("Arial", 13), bg="#ffffff")
+            self.distance_error_labels[city].pack(side="left", padx=5)
+
+            # Path entry label
+            tk.Label(row_frame, text=f"Path to {city} (comma-separated):", font=("Arial", 13, "bold"), fg="#587cd6", bg="#ffffff").pack(side="left", padx=5)
+    
+            # Path entry field
+            self.path_entries[city] = tk.Entry(row_frame, font=("Arial", 13))
+            self.path_entries[city].pack(side="left", padx=5)
+
+            # Error label for path entry
+            self.path_error_labels[city] = tk.Label(row_frame, text="", fg="red", font=("Arial", 13), bg="#ffffff")
+            self.path_error_labels[city].pack(side="left", padx=5)
+
+
+        # Buttons
+        self.start_game_button = tk.Button(
+            frame,
+            text="Start Game",
+            command=self.start_game,
+            font=("Arial", 12, "bold"),
+            bg="#f86b53",
+            fg="white",
+            padx=10,
+            pady=5,
+            relief="raised",
+            borderwidth=2,
+            width=20,
+            height=1,
+            activebackground="#e74755",
+            activeforeground="white",
+        )
+        self.start_game_button.pack(pady=15)
+        
+        self.check_answer_button = tk.Button(
+            frame,
+            text="Submit",
+            command=self.check_answer,
+            font=("Arial", 12, "bold"),
+            bg="#f86b53",
+            fg="white",
+            padx=10,
+            pady=5,
+            relief="raised",
+            borderwidth=2,
+            width=20,
+            height=1,
+            activebackground="#e74755",
+            activeforeground="white",
+        )
+        self.check_answer_button.pack(pady=15)
+            
+    def go_to_game_frame(self):
+        if not self.player_name.get():
+            self.player_name_error_label.config(text="Name cannot be empty")
+            return
+        self.player_name_error_label.config(text="")
+        self.show_frame("Play")
+        
+    def start_game(self):
+        self.graph = self.generate_random_graph()
+        self.display_graph()
+
+        # Randomly select a starting city and set it in the dropdown
+        selected_city = random.choice(self.cities)
+        self.start_city_var.set(selected_city)
+        
     def generate_random_graph(self):
         graph = {city: {} for city in self.cities}
         for i in range(len(self.cities)):
@@ -141,203 +287,7 @@ class ShortestPath:
                         graph[other_city][city] = distance
                         break
         return graph
-
-    
-    def setup_ui(self):
-        root = tk.Tk()
-        root.title("Shortest Path Game")
-        root.geometry("1110x650")
-
-        # Create the start frame
-        self.start_frame = tk.Frame(root, bg="#ffffff")
-
-        # Player name label
-        tk.Label(self.start_frame, text="Enter your name:", font=("Arial", 18, "bold"), fg="#fa0000", bg="#ffffff").grid(row=0, column=0, padx=10, pady=10)
-
-        # Player name entry
-        self.player_name_entry = tk.Entry(self.start_frame, font=("Arial", 14))
-        self.player_name_entry.grid(row=0, column=1, padx=10, pady=10)
-
-        # Error label for name entry
-        self.name_error_label = tk.Label(self.start_frame, text="", fg="red", font=("Arial", 12), bg="#ffffff")
-        self.name_error_label.grid(row=1, column=0, columnspan=2, pady=5)
-
-        # Start Game button
-        tk.Button(self.start_frame, text="Start Game", command=self.start_game, font=("Arial", 12, "bold"),
-            bg="#f86b53",
-            fg="white",
-            padx=10,
-            pady=5,
-            relief="raised",
-            borderwidth=2,
-            width=20,
-            height=1,
-            activebackground="#e74755",
-            activeforeground="white").grid(row=2, column=0, columnspan=2, pady=10)
-
-        # Center the frame within the main window
-        self.start_frame.grid(row=0, column=0, padx=(root.winfo_screenwidth() - 1250) // 2, pady=(root.winfo_screenheight() - 650) // 2)
-
-
-        menu_bar = tk.Menu(root)  # Attach the menu bar to the main window
-        root.config(menu=menu_bar)
-
-        # Create a 'Game' menu
-        game_menu = tk.Menu(menu_bar, tearoff=0)
-        menu_bar.add_cascade(label="Menu", menu=game_menu)
-
-        # Add 'Start New Game', 'View Results', and 'Exit' options
-        game_menu.add_command(label="Start New Game", command=self.back_to_start)
-        game_menu.add_command(label="View Results", command=self.result_transfer)
-        game_menu.add_command(label="Exit", command=root.quit)
-        
-
-        # Second frame
-        self.game_frame = tk.Frame(root)
-
-        tk.Label(self.game_frame, text="The Starting City is:", font=("Arial", 18, "bold"), fg="#fa0000", bg="#ffffff").grid(row=1, column=1, padx=10, pady=10)
-        self.start_city_var = tk.StringVar(root)
-        tk.Label(self.game_frame, textvariable=self.start_city_var, font=("Arial", 18, "bold"), fg="#fa0000", bg="#ffffff").grid(row=1, column=2, padx=10, pady=10)
-
-        tk.Button(self.game_frame, text="New Game", command=self.new_game).grid(row=2, column=0)
-        tk.Button(self.game_frame, text="Check Answer", command=self.check_answer).grid(row=2, column=1)
-
-        # Matrix display
-        matrix_frame = tk.Frame(self.game_frame)
-        matrix_frame.grid(row=3, column=2, columnspan=2)
-        
-        for i, city in enumerate(self.cities):
-            # Row and column headers with enhanced styles
-            tk.Label(matrix_frame, text=city, borderwidth=2, relief="solid", padx=10, pady=5, 
-                    font=("Arial", 12, "bold"), bg="#f0f0f0", fg="#333333").grid(row=len(self.cities) + 1, column=i + 1, sticky="nsew")
-            tk.Label(matrix_frame, text=city, borderwidth=2, relief="solid", padx=10, pady=5, 
-                    font=("Arial", 12, "bold"), bg="#f0f0f0", fg="#333333").grid(row=i + 1, column=0, sticky="nsew")
-
-        # Matrix labels with enhanced styles and diagonal logic
-        self.matrix_labels = [[tk.Label(matrix_frame, text="", borderwidth=1, relief="solid", padx=10, pady=5, 
-                                font=("Arial", 12), bg="#ffffff", fg="#333333") for _ in self.cities] for _ in self.cities]
-
-        for i in range(len(self.cities)):
-            for j in range(len(self.cities)):
-                if j < i:
-                    # Normal values on the left side of the diagonal
-                    self.matrix_labels[i][j].grid(row=i + 1, column=j + 1, sticky="nsew")
-                elif j == i:
-                    # Diagonal cells
-                    self.matrix_labels[i][j].config(bg="#cccccc")  # Highlight diagonal (optional)
-                    self.matrix_labels[i][j].grid(row=i + 1, column=j + 1, sticky="nsew")
-                else:
-                    # Hide values on the right side of the diagonal
-                    self.matrix_labels[i][j].config(text="", bg="#000000", fg="#000000")  # Set background to indicate it's hidden
-                    self.matrix_labels[i][j].grid(row=i + 1, column=j + 1, sticky="nsew")
-
-        self.distance_entries = {}
-        self.path_entries = {}
-        self.distance_error_labels = {}  # To store error labels for distance inputs
-        self.path_error_labels = {}  # To store error labels for path inputs
-
-        for i, city in enumerate(self.cities):
-            # Distance entry label
-            tk.Label(self.game_frame, text=f"Distance to {city}:", font=("Arial", 13, "bold"), fg="#587cd6", bg="#ffffff").grid(row=4 + i, column=0)
-    
-            # Distance entry field
-            self.distance_entries[city] = tk.Entry(self.game_frame, font=("Arial", 13))
-            self.distance_entries[city].grid(row=4 + i, column=1)
-
-            # Error label for distance entry
-            self.distance_error_labels[city] = tk.Label(self.game_frame, text="", fg="red", font=("Arial", 13))
-            self.distance_error_labels[city].grid(row=4 + i, column=2)  # Error label next to the distance entry
-
-            # Path entry label
-            tk.Label(self.game_frame, text=f"Path to {city} (comma-separated):", font=("Arial", 13, "bold"), fg="#587cd6", bg="#ffffff").grid(row=4 + i, column=3)
-    
-            # Path entry field
-            self.path_entries[city] = tk.Entry(self.game_frame, font=("Arial", 13))
-            self.path_entries[city].grid(row=4 + i, column=4)
-
-            # Error label for path entry
-            self.path_error_labels[city] = tk.Label(self.game_frame, text="", fg="red", font=("Arial", 13))
-            self.path_error_labels[city].grid(row=4 + i, column=5)  # Error label next to the path entry
-
-        # Result frame
-        self.result_frame = tk.Frame(root)
-
-        tk.Label(self.result_frame, text="Results for All Players:", font=("Arial", 14)).pack(pady=20)
-
-        # Create Treeview
-        columns = ("player_name", "player_answer", "player_paths", "correct_answer",  "correct_paths", "bellman_ford_time", "dijkstra_time")
-        self.results_tree = ttk.Treeview(self.result_frame, columns=columns, show="headings")
-        self.results_tree.pack(pady=10, fill="both", expand=True)
-
-        # Define column headings
-        self.results_tree.heading("player_name", text="Name", anchor="w")
-        self.results_tree.heading("player_answer", text="Distances", anchor="w")
-        self.results_tree.heading("player_paths", text="Paths", anchor="w")
-        self.results_tree.heading("correct_answer", text="Algo_distance", anchor="w")
-        self.results_tree.heading("correct_paths", text="Algo_path", anchor="w")
-        self.results_tree.heading("bellman_ford_time", text="Bellman_Time", anchor="w")
-        self.results_tree.heading("dijkstra_time", text="Dijkstra_Time", anchor="w")
-
-        # Define column widths
-        self.results_tree.column("player_name", width=100, anchor="w")
-        self.results_tree.column("player_answer", width=200, anchor="w")
-        self.results_tree.column("player_paths", width=200, anchor="w")
-        self.results_tree.column("correct_answer", width=200, anchor="w")
-        self.results_tree.column("correct_paths", width=200, anchor="w")
-        self.results_tree.column("bellman_ford_time", width=60, anchor="w")
-        self.results_tree.column("dijkstra_time", width=60, anchor="w")
-
-        tk.Button(
-            self.result_frame,
-            text="Show All Results",
-            command=self.show_all_results,
-            font=("Arial", 12, "bold"),
-            bg="#f86b53",
-            fg="white",
-            padx=10,
-            pady=5,
-            relief="raised",
-            borderwidth=2,
-            width=20,
-            height=1,
-            activebackground="#e74755",
-            activeforeground="white",
-        ).pack(pady=20)
-
-    # Start the Tkinter main loop
-        root.mainloop()
-
-
-    def start_game(self):
-        player_name = self.player_name_entry.get()
-        if not player_name:
-            messagebox.showerror("Error", "Please enter your name.")
-            return
-
-        # Hide start frame and show game frame
-        self.start_frame.grid_forget()
-        self.game_frame.grid(row=0, column=0)
-    
-    def result_transfer(self):
-        self.start_frame.grid_forget()
-        self.game_frame.grid_forget()
-        self.result_frame.grid(row=0, column=0)
-        
-    def back_to_start(self):
-        self.game_frame.grid_forget()
-        self.result_frame.grid_forget()
-        self.start_frame.grid(row=0, column=0)
-
-    # Start a new game
-    def new_game(self):
-        self.graph = self.generate_random_graph()
-        self.display_graph()
-
-        # Randomly select a starting city and set it in the dropdown
-        selected_city = random.choice(self.cities)
-        self.start_city_var.set(selected_city)  # Update dropdown display with selected city
-
-    # Display the graph on the UI =============================================================================================================================================
+                        
     def display_graph(self):
         for i, city1 in enumerate(self.cities):
             for j, city2 in enumerate(self.cities):
@@ -345,8 +295,7 @@ class ShortestPath:
                     self.matrix_labels[i][j].config(text=str(self.graph[city1][city2]))
                 else:
                     self.matrix_labels[i][j].config(text="")
-
-        
+                    
     def validate_inputs(self):
         valid = True
         # Validate distance entries
@@ -372,32 +321,79 @@ class ShortestPath:
                 self.path_error_labels[city].config(text="")  # Clear error message if valid
 
         return valid
-
     
+    
+    def bellman_ford(self, graph, start):
+        distances = {city: float('inf') for city in graph}
+        distances[start] = 0
+        predecessors = {city: None for city in graph}
+
+        for _ in range(len(graph) - 1):
+            for u in graph:
+                for v in graph[u]:
+                    if distances[u] + graph[u][v] < distances[v]:
+                        distances[v] = distances[u] + graph[u][v]
+                        predecessors[v] = u
+
+        # Check for negative weight cycles
+        for u in graph:
+            for v in graph[u]:
+                if distances[u] + graph[u][v] < distances[v]:
+                    return None, None
+        return distances, predecessors
+    
+    #dijkstra algo
+    def dijkstra(self, graph, start):
+        distances = {city: float('inf') for city in graph}
+        distances[start] = 0
+        predecessors = {city: None for city in graph}
+        priority_queue = [(0, start)]
+        visited = set()
+
+        while priority_queue:
+            current_distance, current_city = heapq.heappop(priority_queue)
+
+            if current_city in visited:
+                continue
+            visited.add(current_city)
+
+            for neighbor, weight in graph[current_city].items():
+                distance = current_distance + weight
+
+                if distance < distances[neighbor]:
+                    distances[neighbor] = distance
+                    predecessors[neighbor] = current_city
+                    heapq.heappush(priority_queue, (distance, neighbor))
+
+        return distances, predecessors                
+                
     def check_answer(self):
         #validation statment
         if not self.validate_inputs():
             print("Invalid input detected")
             return
-        player_name = self.player_name_entry.get()
+        player_name = self.player_name.get()
         start_city = self.start_city_var.get()
 
         if not player_name:
             messagebox.showerror("Error", "Please enter your name.")
             return
 
-        # Run Bellman-Ford and Dijkstra algorithms
-        start_time_bell = time.time()
+        start_time_bell = time.perf_counter()
         bellman_result, bellman_predecessors = self.bellman_ford(self.graph, start_city)
         print('bell ans ' + json.dumps(bellman_result))
         print('bell pred ' + json.dumps(bellman_predecessors))
-        bellman_time = time.time() - start_time_bell
+        bellman_time = time.perf_counter() - start_time_bell
+        print('Bellman-Ford Execution Time:', bellman_time)
 
-        start_time_dij = time.time()
+        start_time_dij = time.perf_counter()
         dijkstra_result, dijkstra_predecessors = self.dijkstra(self.graph, start_city)
         print('dijk ans ' + json.dumps(dijkstra_result))
         print('dijk pred ' + json.dumps(dijkstra_predecessors))
-        dijkstra_time = time.time() - start_time_dij
+        dijkstra_time = time.perf_counter() - start_time_dij
+        print('Dijkstra Execution Time:', dijkstra_time)
+
+
 
         if bellman_result and dijkstra_result:
             correct_answer = dijkstra_result  # Since graph has no negative weights
@@ -435,7 +431,7 @@ class ShortestPath:
                 # Check distances
                 if player_answer[city] != correct_answer[city]:
                     all_correct = False
-                    
+                    # messagebox.showinfo("Result", f"Incorrect distance for {city}. Correct distance is {correct_answer[city]}.")
                     self.distance_error_labels[city].config(text=f"Incorrect distance for {city}. Correct distance is {correct_answer[city]}.")
 
                 # Check paths
@@ -447,11 +443,13 @@ class ShortestPath:
                 if city != start_city:
                     if player_paths[city] != correct_paths[city]:
                         all_correct = False
-                        
+                        # messagebox.showinfo("Result", f"Incorrect path for {city}. Correct path is {correct_path_str}.")
                         self.path_error_labels[city].config(text=f"Incorrect path for {city}. Correct path is {correct_path_str}.")
                 else:
                     self.path_error_labels[city].config(text=f"Incorrect path for {city}. Correct path is {city}.")
                     
+                    
+            # self.save_to_database(player_name, player_answer, player_paths, correct_answer, correct_paths, bellman_time, dijkstra_time)
             
             # Provide final feedback
             if all_correct:
@@ -471,7 +469,91 @@ class ShortestPath:
         if end == start:
             path.insert(0, start)
         return path
+    
+    
+    def save_to_database(self, player_name, player_answer, player_paths, correct_answer, correct_paths, bellman_ford_time, dijkstra_time):
+        game_id = str(uuid.uuid4())  # Generate a unique ID for the game session
 
+        game_data = {
+            "game_id": game_id,
+            "player_name": player_name,  
+            "player_answer": player_answer,
+            "player_paths": player_paths,
+            "correct_answer": correct_answer,
+            "correct_paths": correct_paths,  
+            "bellman_ford_time": bellman_ford_time,
+            "dijkstra_time": dijkstra_time,
+        }
+
+        # Save the game result to Firebase with a unique document ID
+        try:
+            print("done")
+            self.db.collection("ShortestPath").document(game_id).set(game_data)
+            print(f"Game result saved to Firebase with game ID: {game_id}")
+        except Exception as e:
+            print(f"An error occurred while saving to Firestore: {e}")
+            
+            
+    def start_new_game(self):
+        # self.distance_error_labels.config(text="")
+        # self.path_error_labels.config(text="")
+        self.distance_entries = {}
+        self.path_entries = {}
+        self.graph = {}
+        self.matrix_labels = []
+        self.player_name_error_label.config(text="")
+        self.player_name.set("")
+        self.show_frame("NameEntry")
+    
+#//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    def create_view_results_frame(self):
+        frame = tk.Frame(self.master)
+
+        tk.Label(frame, text="Results for All Players:", font=("Arial", 14)).pack(pady=20)
+
+        # Create Treeview
+        columns = ("player_name", "player_answer", "player_paths", "correct_answer",  "correct_paths", "bellman_ford_time", "dijkstra_time")
+        self.results_tree = ttk.Treeview(frame, columns=columns, show="headings")
+        self.results_tree.pack(pady=10, fill="both", expand=True)
+
+        # Define column headings
+        self.results_tree.heading("player_name", text="Name", anchor="w")
+        self.results_tree.heading("player_answer", text="Distances", anchor="w")
+        self.results_tree.heading("player_paths", text="Paths", anchor="w")
+        self.results_tree.heading("correct_answer", text="Algo_distance", anchor="w")
+        self.results_tree.heading("correct_paths", text="Algo_path", anchor="w")
+        self.results_tree.heading("bellman_ford_time", text="Bellman_Time", anchor="w")
+        self.results_tree.heading("dijkstra_time", text="Dijkstra_Time", anchor="w")
+
+        # Define column widths
+        self.results_tree.column("player_name", width=100, anchor="w")
+        self.results_tree.column("player_answer", width=200, anchor="w")
+        self.results_tree.column("player_paths", width=200, anchor="w")
+        self.results_tree.column("correct_answer", width=200, anchor="w")
+        self.results_tree.column("correct_paths", width=200, anchor="w")
+        self.results_tree.column("bellman_ford_time", width=60, anchor="w")
+        self.results_tree.column("dijkstra_time", width=60, anchor="w")
+
+        tk.Button(
+            frame,
+            text="Show All Results",
+            command=self.show_all_results,
+            font=("Arial", 12, "bold"),
+            bg="#f86b53",
+            fg="white",
+            padx=10,
+            pady=5,
+            relief="raised",
+            borderwidth=2,
+            width=20,
+            height=1,
+            activebackground="#e74755",
+            activeforeground="white",
+        ).pack(pady=20)
+        
+        self.frames["ViewResults"] = frame  # Add to frames dictionary
+        self.show_frame("ViewResults")  # Show this frame
+    
     def get_all_results(self):
         # Retrieve all documents from the 'ShortestPath' collection
         docs = self.db.collection("ShortestPath").stream()
@@ -480,7 +562,7 @@ class ShortestPath:
         results = [doc.to_dict() for doc in docs]
 
         return results
-
+    
     def show_all_results(self):
         # Clear existing data in the Treeview
         for item in self.results_tree.get_children():
@@ -502,6 +584,11 @@ class ShortestPath:
         else:
             # If no results, you can optionally add a message or handle this case
             self.results_tree.insert("", "end", values=("No results found", "", "", "", "", "", ""))
-
+        
+    def exit(self):
+        self.master.destroy()
+            
 if __name__ == "__main__":
-    app = ShortestPath()
+    root = tk.Tk()
+    app = ShortestPath(root)
+    root.mainloop()
