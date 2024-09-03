@@ -44,7 +44,7 @@ class ShortestPath:
     def initialize_firebase(self):
         try:
             if not firebase_admin._apps:
-                cred = credentials.Certificate(r'C:\Users\Geeneth\Desktop\Code\BSC\PDSA2\CW\pdsa-cw-firebase-adminsdk-fekak-92d0a01b44.json')
+                cred = credentials.Certificate(r'pdsa-cw-firebase-adminsdk-fekak-92d0a01b44.json')  #add path
                 firebase_admin.initialize_app(cred)
             self.db = firestore.client()
         except Exception as e:
