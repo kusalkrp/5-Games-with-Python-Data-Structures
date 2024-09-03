@@ -21,8 +21,8 @@ class ShortestPath:
         self.master.configure(bg="#ffffff")
         self.master.resizable(False, False)
         
+        #my
         self.player_name = tk.StringVar()
-        #my 
         self.cities = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
         self.graph = {}
         self.matrix_labels = []
@@ -39,7 +39,6 @@ class ShortestPath:
 
         self.initialize_firebase()
         self.create_frames()
-        # self.create_menu()
         self.show_frame("NameEntry")
         
     def initialize_firebase(self):
@@ -98,7 +97,6 @@ class ShortestPath:
             activeforeground="white",
         ).pack(pady=20)
     
-    
     def create_play_game_frame(self):
         frame = self.frames["Play"]
 
@@ -124,15 +122,16 @@ class ShortestPath:
             bg="#ffffff",
             fg="blue",
         )
+        print(self.matrix_labels)
         self.instructions_label.pack(pady=5)
-        self.instructions_label = tk.Label(
+        self.instructions_label_city = tk.Label(
             frame,
             textvariable=self.start_city_var,
             font=("Arial", 15),
             bg="#ffffff",
             fg="blue",
         )
-        self.instructions_label.pack(pady=10)
+        self.instructions_label_city.pack(pady=10)
 
         self.error_label = tk.Label(frame, text="", fg="red", font=("Arial", 12))
         self.error_label.pack(pady=5)
@@ -174,6 +173,7 @@ class ShortestPath:
                 row_labels.append(label)  # Append label to the row list
 
             self.matrix_labels.append(row_labels)
+            
 
         self.distance_entries = {}
         self.path_entries = {}
@@ -439,10 +439,11 @@ class ShortestPath:
                 if city != start_city:
                     if player_paths[city] != correct_paths[city]:
                         all_correct = False
-                        # messagebox.showinfo("Result", f"Incorrect path for {city}. Correct path is {correct_path_str}.")
                         self.path_error_labels[city].config(text=f"Incorrect path for {city}. Correct path is {correct_path_str}.")
                 else:
                     self.path_error_labels[city].config(text=f"Incorrect path for {city}. Correct path is {city}.")
+                    
+                    
             
             # Provide final feedback
             if all_correct:
@@ -490,15 +491,29 @@ class ShortestPath:
             print(f"An error occurred while saving to Firestore: {e}")
             
             
-    def start_new_game(self):
-        self.distance_entries = {}
-        self.path_entries = {}
+    def start_new_game(self):    
+        #Emptying the table values
+        for i, city1 in enumerate(self.cities):
+            for j, city2 in enumerate(self.cities):
+                self.matrix_labels[i][j].config(text="")
+        
+        #Distance and path error lables
+        for i, city in enumerate(self.cities):
+            self.distance_error_labels[city].config(text="")
+            self.path_error_labels[city].config(text="")
+        
+        #Emptying input filds
+        for i, city in enumerate(self.cities):
+            self.distance_entries[city].delete(0, tk.END)
+            self.path_entries[city].delete(0, tk.END)
+
+        self.start_city_var.set("")
+        self.instructions_label_city.config(textvariable=None)
         self.graph = {}
-        self.matrix_labels = []
         self.player_name_error_label.config(text="")
         self.player_name.set("")
         self.show_frame("NameEntry")
-        
+    
     def create_view_results_frame(self):
         frame = tk.Frame(self.master)
 
@@ -546,8 +561,8 @@ class ShortestPath:
             activeforeground="white",
         ).pack(pady=20)
         
-        self.frames["ViewResults"] = frame  
-        self.show_frame("ViewResults")  
+        self.frames["ViewResults"] = frame  # Add to frames dictionary
+        self.show_frame("ViewResults")  # Show this frame
     
     def get_all_results(self):
         # Retrieve all documents from the 'ShortestPath' collection
