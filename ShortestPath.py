@@ -17,11 +17,10 @@ class ShortestPath:
     def __init__(self, master):
         self.master = master
         self.master.title("Shortest Path Game")
-        self.master.geometry("1510x950")  # Increased window size
+        self.master.geometry("1510x1000")  
         self.master.configure(bg="#ffffff")
         self.master.resizable(False, False)
         
-        #my
         self.player_name = tk.StringVar()
         self.cities = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
         self.graph = {}
@@ -39,12 +38,13 @@ class ShortestPath:
 
         self.initialize_firebase()
         self.create_frames()
+        # self.create_menu()
         self.show_frame("NameEntry")
         
     def initialize_firebase(self):
         try:
             if not firebase_admin._apps:
-                cred = credentials.Certificate(r'pdsa-cw-firebase-adminsdk-fekak-92d0a01b44.json')
+                cred = credentials.Certificate(r'C:\Users\Geeneth\Desktop\Code\BSC\PDSA2\CW\pdsa-cw-firebase-adminsdk-fekak-92d0a01b44.json')
                 firebase_admin.initialize_app(cred)
             self.db = firestore.client()
         except Exception as e:
@@ -113,67 +113,72 @@ class ShortestPath:
         game_menu.add_command(label="View Results", command=self.create_view_results_frame)
         game_menu.add_command(label="Exit", command=self.exit)
         self.start_city_var = tk.StringVar(frame)
+        
+        style = ttk.Style()
+
+        # Configure the style for a custom frame
+        style.configure('Custom.TFrame', background='#ffffff')
+        
+        lbl_frame = ttk.Frame(frame, width=100, height=100, borderwidth=10, style='Custom.TFrame')
+        lbl_frame.pack(side="top")
 
         # Instructions and Error Labels
         self.instructions_label = tk.Label(
-            frame,
+            lbl_frame,
             text="The starting city is: ",
             font=("Arial", 15),
             bg="#ffffff",
             fg="blue",
         )
-        print(self.matrix_labels)
-        self.instructions_label.pack(pady=5)
+
+        self.instructions_label.pack(pady=5, side="left")
         self.instructions_label_city = tk.Label(
-            frame,
+            lbl_frame,
             textvariable=self.start_city_var,
             font=("Arial", 15),
             bg="#ffffff",
             fg="blue",
         )
-        self.instructions_label_city.pack(pady=10)
+        self.instructions_label_city.pack(pady=5, side="left")
 
-        self.error_label = tk.Label(frame, text="", fg="red", font=("Arial", 12))
+        self.error_label = tk.Label(lbl_frame, text="", fg="red", font=("Arial", 12))
         self.error_label.pack(pady=5)
+
+        tb_input = ttk.Frame(frame, width=1500, height=700, borderwidth=10, style='Custom.TFrame')
+        tb_input.pack_propagate(False)
+        tb_input.place(x=0, y=70)
         
+        table_frame = ttk.Frame(tb_input, width=100, height=100, borderwidth=10, style='Custom.TFrame')
+        table_frame.pack(side="left")
+
         for i, city in enumerate(self.cities):
-            # Column headers with enhanced styles
-            tk.Label(frame, text=city, borderwidth=2, relief="solid", padx=10, pady=5,
-                     font=("Arial", 12, "bold"), bg="#f0f0f0", fg="#333333").pack(side="left", padx=2)
+            # Row and column headers with enhanced styles
+            tk.Label(table_frame, text=city, borderwidth=2, relief="solid", padx=15, pady=10, 
+                    font=("Arial", 12, "bold"), bg="#f0f0f0", fg="#333333").grid(row=len(self.cities) + 1, column=i + 1, sticky="nsew")
+            tk.Label(table_frame, text=city, borderwidth=2, relief="solid", padx=15, pady=10, 
+                    font=("Arial", 12, "bold"), bg="#f0f0f0", fg="#333333").grid(row=i + 1, column=0, sticky="nsew")
 
-        # Creating a container frame for row labels and matrix cells
-        for i, city in enumerate(self.cities):
-            row_frame = tk.Frame(frame)
-            row_frame.pack(side="top", fill="x")
+        # Matrix labels with enhanced styles and diagonal logic
+        self.matrix_labels = [[tk.Label(table_frame, text="", borderwidth=1, relief="solid", padx=15, pady=10, 
+                                font=("Arial", 12), bg="#ffffff", fg="#333333") for _ in self.cities] for _ in self.cities]
 
-            # Row headers with enhanced styles
-            tk.Label(row_frame, text=city, borderwidth=2, relief="solid", padx=10, pady=5,
-                     font=("Arial", 12, "bold"), bg="#f0f0f0", fg="#333333").pack(side="left", padx=5)
-
-            # List to hold each row's labels
-            row_labels = []
-
-            # Matrix labels with enhanced styles and diagonal logic
+        for i in range(len(self.cities)):
             for j in range(len(self.cities)):
-                label = tk.Label(row_frame, text="", borderwidth=1, relief="solid", padx=10, pady=5,
-                                 font=("Arial", 12), bg="#ffffff", fg="#333333")
-
                 if j < i:
                     # Normal values on the left side of the diagonal
-                    label.pack(side="left", padx=5)
+                    self.matrix_labels[i][j].grid(row=i + 1, column=j + 1, sticky="nsew")
                 elif j == i:
                     # Diagonal cells
-                    label.config(bg="#cccccc")  # Highlight diagonal (optional)
-                    label.pack(side="left", padx=5)
+                    self.matrix_labels[i][j].config(bg="#cccccc")  # Highlight diagonal (optional)
+                    self.matrix_labels[i][j].grid(row=i + 1, column=j + 1, sticky="nsew")
                 else:
                     # Hide values on the right side of the diagonal
-                    label.config(text="", bg="#000000", fg="#000000")  # Set background to indicate it's hidden
-                    label.pack(side="left", padx=5)
+                    self.matrix_labels[i][j].config(text="", bg="#000000", fg="#000000")  # Set background to indicate it's hidden
+                    self.matrix_labels[i][j].grid(row=i + 1, column=j + 1, sticky="nsew")
 
-                row_labels.append(label)  # Append label to the row list
-
-            self.matrix_labels.append(row_labels)
-            
+        input_frame = ttk.Frame(tb_input, width=900, height=600, borderwidth=10, style='Custom.TFrame')
+        input_frame.pack_propagate(False)
+        input_frame.pack(side="right")
 
         self.distance_entries = {}
         self.path_entries = {}
@@ -182,35 +187,41 @@ class ShortestPath:
 
         for i, city in enumerate(self.cities):
             # Create a container frame for each row to align all widgets horizontally
-            row_frame = tk.Frame(frame, bg="#ffffff")
-            row_frame.pack(fill="x", padx=5, pady=2)
+            row_frame_val = tk.Frame(input_frame, bg="#ffffff")
+            row_frame_val.pack(fill="x", padx=5, pady=2)
+            
+            row_frame_error = tk.Frame(input_frame, bg="#ffffff")
+            row_frame_error.pack(fill="x", padx=5, pady=2)
 
             # Distance entry label
-            tk.Label(row_frame, text=f"Distance to {city}:", font=("Arial", 13, "bold"), fg="#587cd6", bg="#ffffff").pack(side="left", padx=5)
+            tk.Label(row_frame_val, text=f"Distance to {city}:", font=("Arial", 13, "bold"), fg="#587cd6", bg="#ffffff").pack(side="left", padx=5)
     
             # Distance entry field
-            self.distance_entries[city] = tk.Entry(row_frame, font=("Arial", 13))
+            self.distance_entries[city] = tk.Entry(row_frame_val, font=("Arial", 13), width=10)
             self.distance_entries[city].pack(side="left", padx=5)
 
             # Error label for distance entry
-            self.distance_error_labels[city] = tk.Label(row_frame, text="", fg="red", font=("Arial", 13), bg="#ffffff")
+            self.distance_error_labels[city] = tk.Label(row_frame_error, text="", fg="red", font=("Arial", 13), bg="#ffffff")
             self.distance_error_labels[city].pack(side="left", padx=5)
-
-            # Path entry label
-            tk.Label(row_frame, text=f"Path to {city} (comma-separated):", font=("Arial", 13, "bold"), fg="#587cd6", bg="#ffffff").pack(side="left", padx=5)
     
             # Path entry field
-            self.path_entries[city] = tk.Entry(row_frame, font=("Arial", 13))
-            self.path_entries[city].pack(side="left", padx=5)
+            self.path_entries[city] = tk.Entry(row_frame_val, font=("Arial", 13))
+            self.path_entries[city].pack(side="right", padx=5)
+            
+            # Path entry label
+            tk.Label(row_frame_val, text=f"Path to {city} (comma-separated):", font=("Arial", 13, "bold"), fg="#587cd6", bg="#ffffff").pack(side="right", padx=5)
 
             # Error label for path entry
-            self.path_error_labels[city] = tk.Label(row_frame, text="", fg="red", font=("Arial", 13), bg="#ffffff")
-            self.path_error_labels[city].pack(side="left", padx=5)
+            self.path_error_labels[city] = tk.Label(row_frame_error, text="", fg="red", font=("Arial", 13), bg="#ffffff")
+            self.path_error_labels[city].pack(side="right", padx=5)
 
-
+        btn_frame = ttk.Frame(frame, width=500, height=100, borderwidth=10, style='Custom.TFrame')
+        btn_frame.pack_propagate(False)
+        btn_frame.place(x=500, y=850)
+        
         # Buttons
         self.start_game_button = tk.Button(
-            frame,
+            btn_frame,
             text="Start Game",
             command=self.start_game,
             font=("Arial", 12, "bold"),
@@ -225,10 +236,10 @@ class ShortestPath:
             activebackground="#e74755",
             activeforeground="white",
         )
-        self.start_game_button.pack(pady=15)
+        self.start_game_button.pack(pady=15, side="left")
         
         self.check_answer_button = tk.Button(
-            frame,
+            btn_frame,
             text="Submit",
             command=self.check_answer,
             font=("Arial", 12, "bold"),
@@ -243,7 +254,11 @@ class ShortestPath:
             activebackground="#e74755",
             activeforeground="white",
         )
-        self.check_answer_button.pack(pady=15)
+        self.check_answer_button.pack(pady=15, side="right")
+        
+        
+        self.win_label = tk.Label(frame, text="", fg="blue", font=("Arial", 13), bg="#ffffff")
+        self.win_label.place(x=450, y=800)
             
     def go_to_game_frame(self):
         if not self.player_name.get():
@@ -428,7 +443,7 @@ class ShortestPath:
                 # Check distances
                 if player_answer[city] != correct_answer[city]:
                     all_correct = False
-                    self.distance_error_labels[city].config(text=f"Incorrect distance for {city}. Correct distance is {correct_answer[city]}.")
+                    self.distance_error_labels[city].config(text=f"Incorrect distance for {city}. Correct distance is {correct_answer[city]}.", fg="green")
 
                 # Check paths
                 if city != start_city:
@@ -439,17 +454,18 @@ class ShortestPath:
                 if city != start_city:
                     if player_paths[city] != correct_paths[city]:
                         all_correct = False
-                        self.path_error_labels[city].config(text=f"Incorrect path for {city}. Correct path is {correct_path_str}.")
-                else:
-                    self.path_error_labels[city].config(text=f"Incorrect path for {city}. Correct path is {city}.")
-                    
-                    
+                        self.path_error_labels[city].config(text=f"Incorrect path for {city}. Correct path is {correct_path_str}.", fg="green")
+                if city == start_city:
+                    if player_paths[city] != start_city:
+                        self.path_error_labels[city].config(text=f"Incorrect path for {city}. Correct path is {city}.", fg="green")
             
             # Provide final feedback
             if all_correct:
                 end_time = time.time()
                 play_time = end_time - self.start_time
+                self.win_label.config(text=f"Correct! You found the shortest paths. You took {play_time} seconds.")
                 messagebox.showinfo("Result", f"Correct! You found the shortest paths. You took {play_time} seconds")
+                self.path_error_labels[start_city].config(text="")
                 self.save_to_database(player_name, play_time, player_answer,  player_paths, correct_answer, correct_paths, bellman_time, dijkstra_time)
             else:
                 messagebox.showinfo("Result", "Some answers were incorrect. Please check the distances and paths and try again.")
@@ -491,7 +507,7 @@ class ShortestPath:
             print(f"An error occurred while saving to Firestore: {e}")
             
             
-    def start_new_game(self):    
+    def start_new_game(self):   
         #Emptying the table values
         for i, city1 in enumerate(self.cities):
             for j, city2 in enumerate(self.cities):
@@ -510,10 +526,11 @@ class ShortestPath:
         self.start_city_var.set("")
         self.instructions_label_city.config(textvariable=None)
         self.graph = {}
+        self.win_label.config(text="")
         self.player_name_error_label.config(text="")
         self.player_name.set("")
         self.show_frame("NameEntry")
-    
+        
     def create_view_results_frame(self):
         frame = tk.Frame(self.master)
 
@@ -535,7 +552,7 @@ class ShortestPath:
         self.results_tree.heading("dijkstra_time", text="Dijkstra_Time", anchor="w")
 
         # Define column widths
-        self.results_tree.column("player_name", width=100, anchor="w")
+        self.results_tree.column("player_name", width=15, anchor="w")
         self.results_tree.column("play_time", width=100, anchor="w")
         self.results_tree.column("player_answer", width=200, anchor="w")
         self.results_tree.column("player_paths", width=200, anchor="w")
