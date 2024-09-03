@@ -17,11 +17,12 @@ class ShortestPath:
     def __init__(self, master):
         self.master = master
         self.master.title("Shortest Path Game")
-        self.master.geometry("1510x1000")  
+        self.master.geometry("1510x900")  # Increased window size
         self.master.configure(bg="#ffffff")
         self.master.resizable(False, False)
         
         self.player_name = tk.StringVar()
+        #my 
         self.cities = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
         self.graph = {}
         self.matrix_labels = []
@@ -44,7 +45,7 @@ class ShortestPath:
     def initialize_firebase(self):
         try:
             if not firebase_admin._apps:
-                cred = credentials.Certificate(r'pdsa-cw-firebase-adminsdk-fekak-92d0a01b44.json')  #add path
+                cred = credentials.Certificate(r'pdsa-cw-firebase-adminsdk-fekak-92d0a01b44.json')
                 firebase_admin.initialize_app(cred)
             self.db = firestore.client()
         except Exception as e:
@@ -143,10 +144,20 @@ class ShortestPath:
 
         self.error_label = tk.Label(lbl_frame, text="", fg="red", font=("Arial", 12))
         self.error_label.pack(pady=5)
+        
+        self.instructions_label = tk.Label(
+            frame,
+            text="Click on Start Game button to start the game. Timer will be started to check the time taken to complete the game. \nIf the set game is too hard re-click the Start game button. Fill the requiered fields and click the Submit button",
+            font=("Arial", 9),
+            bg="#ffffff",
+            fg="blue",
+        )
 
-        tb_input = ttk.Frame(frame, width=1500, height=700, borderwidth=10, style='Custom.TFrame')
+        self.instructions_label.place(x=450, y=50)
+
+        tb_input = ttk.Frame(frame, width=1500, height=700, borderwidth=10) #, style='Custom.TFrame'
         tb_input.pack_propagate(False)
-        tb_input.place(x=0, y=70)
+        tb_input.place(x=0, y=100)
         
         table_frame = ttk.Frame(tb_input, width=100, height=100, borderwidth=10, style='Custom.TFrame')
         table_frame.pack(side="left")
@@ -203,6 +214,8 @@ class ShortestPath:
             # Error label for distance entry
             self.distance_error_labels[city] = tk.Label(row_frame_error, text="", fg="red", font=("Arial", 13), bg="#ffffff")
             self.distance_error_labels[city].pack(side="left", padx=5)
+
+            # # Path entry label
     
             # Path entry field
             self.path_entries[city] = tk.Entry(row_frame_val, font=("Arial", 13))
@@ -217,7 +230,7 @@ class ShortestPath:
 
         btn_frame = ttk.Frame(frame, width=500, height=100, borderwidth=10, style='Custom.TFrame')
         btn_frame.pack_propagate(False)
-        btn_frame.place(x=500, y=850)
+        btn_frame.place(x=500, y=820)
         
         # Buttons
         self.start_game_button = tk.Button(
@@ -257,7 +270,7 @@ class ShortestPath:
         self.check_answer_button.pack(pady=15, side="right")
         
         
-        self.win_label = tk.Label(frame, text="", fg="blue", font=("Arial", 13), bg="#ffffff")
+        self.win_label = tk.Label(frame, text="", fg="red", font=("Arial", 13, "bold"), bg="#ffffff")
         self.win_label.place(x=450, y=800)
             
     def go_to_game_frame(self):
@@ -456,8 +469,9 @@ class ShortestPath:
                         all_correct = False
                         self.path_error_labels[city].config(text=f"Incorrect path for {city}. Correct path is {correct_path_str}.", fg="green")
                 if city == start_city:
-                    if player_paths[city] != start_city:
+                    if player_paths[city] != [start_city]:
                         self.path_error_labels[city].config(text=f"Incorrect path for {city}. Correct path is {city}.", fg="green")
+                    
             
             # Provide final feedback
             if all_correct:
@@ -507,7 +521,7 @@ class ShortestPath:
             print(f"An error occurred while saving to Firestore: {e}")
             
             
-    def start_new_game(self):   
+    def start_new_game(self):  
         #Emptying the table values
         for i, city1 in enumerate(self.cities):
             for j, city2 in enumerate(self.cities):
@@ -530,7 +544,29 @@ class ShortestPath:
         self.player_name_error_label.config(text="")
         self.player_name.set("")
         self.show_frame("NameEntry")
-        
+    
+    def reset_matrix_labels(self):
+        # Step 1: Clear the matrix
+        self.matrix_labels = []
+        print("reset")
+
+        # Step 2: Initialize as a 2D matrix based on the number of cities
+        for i in range(len(self.cities)):
+            row = []
+            for j in range(len(self.cities)):
+                row.append(None)  # or a placeholder for a label, like a Tkinter label widget
+            self.matrix_labels.append(row)
+
+        # Step 3: (Optional) Configure labels if already existing
+        for i, city1 in enumerate(self.cities):
+            for j, city2 in enumerate(self.cities):
+                if self.matrix_labels[i][j] is not None:
+                    self.matrix_labels[i][j].config(text="")  # Set empty text or appropriate value
+                    
+        for i, city1 in enumerate(self.cities):
+            for j, city2 in enumerate(self.cities):
+                self.matrix_labels[i][j].config(text="")
+
     def create_view_results_frame(self):
         frame = tk.Frame(self.master)
 
@@ -577,7 +613,7 @@ class ShortestPath:
             activebackground="#e74755",
             activeforeground="white",
         ).pack(pady=20)
-        
+
         self.frames["ViewResults"] = frame  # Add to frames dictionary
         self.show_frame("ViewResults")  # Show this frame
     
