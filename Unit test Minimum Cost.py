@@ -1,102 +1,81 @@
 import unittest
 from unittest.mock import MagicMock, patch
-import tkinter as tk
-from Minimum_Cost import MinimumCostTaskAssignmentGame  # Corrected import path
+import numpy as np
+from Minimum_Cost import TaskAssignmentGame   # Assuming the class is in this file
 
-class TestMinimumCostTaskAssignmentGame(unittest.TestCase):
-    def setUp(self):
-        self.root = tk.Tk()
-        self.app = MinimumCostTaskAssignmentGame(self.root)
-        self.app.initialize_firebase = MagicMock()  # Mock Firebase initialization
-        self.app.db = MagicMock()  # Mock Firestore client
+class TestTaskAssignmentGame(unittest.TestCase):
 
-    def tearDown(self):
-        self.root.destroy()
+    @patch('task_assignment_game.tk.Tk')
+    def setUp(self, mock_tk):
+        """Setup a new TaskAssignmentGame instance for testing."""
+        self.root = mock_tk
+        self.game = TaskAssignmentGame(self.root)
 
-    def test_generate_cost_matrix(self):
-        num_tasks = 4
-        self.app.generate_cost_matrix(num_tasks)
+    def test_validate_name_empty(self):
+        """Test that validate_name method shows warning when name is empty."""
+        self.game.name_entry.get = MagicMock(return_value="  ")
+        self.game.validate_name()
+        self.assertEqual(self.game.warning_label.cget("text"), "Name cannot be empty.")
+
+    def test_validate_name_non_empty(self):
+        """Test that validate_name method proceeds when name is non-empty."""
+        self.game.name_entry.get = MagicMock(return_value="John Doe")
+        self.game.create_task_frame = MagicMock()
+        self.game.validate_name()
+        self.game.create_task_frame.assert_called_once()
+
+    def test_validate_tasks_valid(self):
+        """Test that validate_tasks proceeds with valid input."""
+        self.game.task_entry.get = MagicMock(return_value="5")
+        self.game.run_game = MagicMock()
+        self.game.validate_tasks()
+        self.game.run_game.assert_called_once_with(5)
+
+    def test_validate_tasks_invalid(self):
+        """Test that validate_tasks shows warning with invalid input."""
+        self.game.task_entry.get = MagicMock(return_value="-1")
+        self.game.validate_tasks()
+        self.assertEqual(self.game.task_warning_label.cget("text"),
+                         "Please enter a valid positive integer for the number of tasks.")
+
+    def test_hungarian_algorithm(self):
+        """Test that the Hungarian algorithm returns correct assignments."""
+        cost_matrix = np.array([[4, 1, 3], [2, 0, 5], [3, 2, 2]])
+        row_ind, col_ind = self.game.hungarian_algorithm(cost_matrix)
+        self.assertEqual(row_ind, [0, 1, 2])
+        self.assertEqual(col_ind, [2, 1, 0])
+
+    def test_calc_costs(self):
+        """Test cost calculation based on assignment."""
+        cost_matrix = np.array([[4, 1, 3], [2, 0, 5], [3, 2, 2]])
+        assignment = [{'row': 0, 'col': 2}, {'row': 1, 'col': 1}, {'row': 2, 'col': 0}]
+        total_cost = self.game.calc_costs(cost_matrix, assignment)
+        self.assertEqual(total_cost, 4 + 0 + 3)
+
+    @patch('task_assignment_game.db.collection')
+    def test_run_game_saves_results(self, mock_db_collection):
+        """Test that run_game method saves results to Firebase."""
+        self.game.player_name = "Test Player"
+        self.game.create_result_frame = MagicMock()
+        mock_db_collection.return_value.add = MagicMock()
         
-        self.assertEqual(len(self.app.cost_matrix), num_tasks, "Cost matrix should have the same number of rows as num_tasks.")
-        self.assertEqual(len(self.app.cost_matrix[0]), num_tasks, "Each row in the cost matrix should have the same number of elements as num_tasks.")
-        
-        for row in self.app.cost_matrix:
-            for cost in row:
-                self.assertGreaterEqual(cost, 20, "Cost should be greater than or equal to 20.")
-                self.assertLessEqual(cost, 200, "Cost should be less than or equal to 200.")
+        num_tasks = 3
+        cost_matrix = np.random.randint(20, 201, size=(num_tasks, num_tasks))
+        self.game.hungarian_algorithm = MagicMock(return_value=(list(range(num_tasks)), list(range(num_tasks))))
+        self.game.calc_costs = MagicMock(return_value=100)
 
-    def test_find_optimal_assignment(self):
-        # Set a known cost matrix
-        self.app.cost_matrix = [
-            [90, 75, 75, 80],
-            [35, 85, 55, 65],
-            [125, 95, 90, 105],
-            [45, 110, 95, 115]
-        ]
-        self.app.find_optimal_assignment()
+        self.game.run_game(num_tasks)
 
-        # Expected results
-        expected_assignment = [(0, 1), (1, 0), (2, 2), (3, 3)]
-        expected_total_cost = 275
+        mock_db_collection.return_value.add.assert_called_once()
+        self.game.create_result_frame.assert_called_once()
 
-        self.assertEqual(self.app.assignment, expected_assignment, "Optimal assignment should match the expected assignment.")
-        self.assertEqual(self.app.total_cost, expected_total_cost, "Total cost should match the expected total cost.")
+    @patch('task_assignment_game.tk.Toplevel')
+    def test_show_cost_matrix(self, mock_toplevel):
+        """Test that show_cost_matrix creates a new window."""
+        cost_matrix = np.array([[4, 1, 3], [2, 0, 5], [3, 2, 2]])
+        assignment = [{'row': 0, 'col': 1}, {'row': 1, 'col': 0}, {'row': 2, 'col': 2}]
+        self.game.show_cost_matrix(cost_matrix, assignment)
+        mock_toplevel.assert_called_once()
 
-    @patch('Minimum_Cost_Task_Assignment_Game.MinimumCostTaskAssignmentGame.save_result_to_database')
-    def test_start_game(self, mock_save_result_to_database):
-        self.app.num_tasks.set(4)
-        self.app.start_game()
-
-        self.assertEqual(len(self.app.cost_matrix), 4, "Cost matrix should have 4 rows when num_tasks is set to 4.")
-        self.assertTrue(hasattr(self.app, 'assignment'), "The app should have an assignment attribute after starting the game.")
-        mock_save_result_to_database.assert_called_once()
-
-    def test_display_results(self):
-        self.app.user_name.set("Test User")
-        self.app.num_tasks.set(3)
-        self.app.cost_matrix = [
-            [50, 40, 60],
-            [30, 90, 70],
-            [80, 20, 90]
-        ]
-        self.app.assignment = [(0, 1), (1, 0), (2, 2)]
-        self.app.total_cost = 180
-        self.app.execution_time = 0.00123
-
-        self.app.display_results(3)
-
-        result_text = self.app.result_text_widget.get("1.0", "end-1c")
-        expected_text = (
-            "User: Test User\n"
-            "Total Minimum Cost: $180\n"
-            "Time Taken: 0.001230 seconds\n"
-            "Optimal Assignment:\n"
-        )
-
-        self.assertIn(expected_text, result_text, "Displayed results should match the expected output.")
-
-    @patch('Minimum_Cost_Task_Assignment_Game.firestore')
-    def test_save_result_to_database(self, mock_firestore):
-        mock_db = mock_firestore.client()
-        self.app.db = mock_db
-
-        self.app.user_name.set("Player1")
-        self.app.num_tasks.set(4)
-        self.app.total_cost = 150
-        self.app.execution_time = 0.123456
-
-        self.app.save_result_to_database()
-
-        # Check if the Firestore client's add method was called with the correct data
-        mock_db.collection.assert_called_once_with("minimum_cost_task_assignment")
-        mock_db.collection().add.assert_called_once()
-        saved_data = mock_db.collection().add.call_args[0][0]
-
-        self.assertEqual(saved_data["user_name"], "Player1", "Saved user_name should match the input.")
-        self.assertEqual(saved_data["num_tasks"], 4, "Saved num_tasks should match the input.")
-        self.assertEqual(saved_data["total_cost"], 150, "Saved total_cost should match the input.")
-        self.assertEqual(saved_data["execution_time"], 0.123456, "Saved execution_time should match the input.")
-        self.assertIsInstance(saved_data["timestamp"], float, "Timestamp should be a float value.")
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()
