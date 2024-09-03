@@ -1,84 +1,47 @@
-import random
+import numpy as np
 import time
+import copy
 import tkinter as tk
-from tkinter import ttk
-import firebase_admin
-from firebase_admin import credentials, firestore
-from scipy.optimize import linear_sum_assignment
-
-# Initialize Firebase
+from tkinter import simpledialog, messagebox
+from firebase_admin import credentials, firestore, initialize_app
+from tkinter import ttk, messagebox
+# Firebase setup
 cred = credentials.Certificate('pdsa-cw-firebase-adminsdk-fekak-92d0a01b44.json')
-firebase_admin.initialize_app(cred)
+initialize_app(cred)
 db = firestore.client()
 
-class MinimumCostTaskAssignmentGame:
-    def __init__(self, master):
-        self.master = master
-        self.master.title("Minimum Cost Task Assignment Game")
-        self.master.geometry("800x650")
-        self.master.configure(bg="white")
-        self.master.resizable(False, False)
+class TaskAssignmentGame:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Task Assignment Game")
+        self.root.geometry("800x650")
+        self.root.config(bg="white")
 
-        self.user_name = tk.StringVar()
-        self.num_tasks = tk.IntVar()
-        self.cost_matrix = []
-        self.assignment = []
-        self.total_cost = 0
-        self.execution_time = 0
-
-        self.frames = {}
-        self.create_frames()
         self.create_menu()
-        self.show_frame("Name")  # Show the first frame
-
-    def create_frames(self):
-        for F in ("Name", "Task", "Game", "Result", "Menu", "Matrix", "DatabaseResults"):
-            frame = ttk.Frame(self.master, padding="10")
-            frame.configure(style="TFrame")
-            frame.grid(row=0, column=0, sticky="nsew")
-            self.frames[F] = frame
-    
-        # Configure grid weights to make frames expand to fill the window
-        self.master.grid_rowconfigure(0, weight=1)
-        self.master.grid_columnconfigure(0, weight=1)
-    
         self.create_name_frame()
-        self.create_task_frame()
-        self.create_game_frame()
-       
-        self.create_matrix_frame()
-        self.create_database_results_frame()
 
     def create_menu(self):
-        menubar = tk.Menu(self.master)
-        self.master.config(menu=menubar)
+        menu_bar = tk.Menu(self.root, bg="#e74755", fg="white")
+        self.root.config(menu=menu_bar)
 
-        game_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Menu", menu=game_menu)
-        game_menu.add_command(label="Start New Game", command=lambda: self.show_frame("Name"))
-        game_menu.add_command(label="View Game Results", command=lambda: self.show_frame("DatabaseResults"))
-        game_menu.add_separator()
-        game_menu.add_command(label="Exit", command=self.master.quit)
-
-    def show_frame(self, frame_name):
-        frame = self.frames[frame_name]
-        frame.tkraise()
+        file_menu = tk.Menu(menu_bar, tearoff=0, bg="white", fg="#e74755")
+        menu_bar.add_cascade(label="Menu", menu=file_menu)
+        file_menu.add_command(label="Start New Game", command=self.show_name_frame)
+        file_menu.add_command(label="View Results", command=self.view_results)
+        file_menu.add_command(label="Exit", command=self.root.quit)
 
     def create_name_frame(self):
-        frame = self.frames["Name"]
+        self.name_frame = tk.Frame(self.root, bg="white")
+        self.name_frame.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(frame, text="Enter Your Name:", background="white").pack(pady=10)
-        self.user_entry = ttk.Entry(frame, textvariable=self.user_name, width=30)
-        self.user_entry.pack(pady=10)
+        tk.Label(self.name_frame, text="Enter Your Name:",font=("Arial", 12, "bold"), bg="white").pack(pady=20)
+        self.name_entry = tk.Entry(self.name_frame)
+        self.name_entry.pack(pady=10)
 
-        self.name_error_label = ttk.Label(frame, text="", foreground="red", background="white")
-        self.name_error_label.pack(pady=5)
+        self.warning_label = tk.Label(self.name_frame, text="", fg="red", bg="white")
+        self.warning_label.pack(pady=10)
 
-        tk.Button(
-            frame,
-            text="Next",
-            command=self.validate_name,
-            font=("Arial", 12, "bold"),
+        tk.Button(self.name_frame, text="Next",  command=self.validate_name,            font=("Arial", 12, "bold"),
             bg="#f86b53",
             fg="white",
             padx=10,
@@ -88,24 +51,21 @@ class MinimumCostTaskAssignmentGame:
             width=20,
             height=1,
             activebackground="#e74755",
-            activeforeground="white",
-        ).pack(pady=20)
+            activeforeground="white",).pack(pady=20)
 
     def create_task_frame(self):
-        frame = self.frames["Task"]
+        self.name_frame.pack_forget()
+        self.task_frame = tk.Frame(self.root, bg="white")
+        self.task_frame.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(frame, text="Enter Number of Tasks:", background="white").pack(pady=10)
-        self.task_entry = ttk.Entry(frame, textvariable=self.num_tasks, width=10)
+        tk.Label(self.task_frame, text="Enter Number of Tasks:", font=("Arial", 12, "bold"), bg="white").pack(pady=20)
+        self.task_entry = tk.Entry(self.task_frame)
         self.task_entry.pack(pady=10)
 
-        self.task_error_label = ttk.Label(frame, text="", foreground="red", background="white")
-        self.task_error_label.pack(pady=5)
+        self.task_warning_label = tk.Label(self.task_frame, text="", fg="red", bg="white")
+        self.task_warning_label.pack(pady=10)
 
-        tk.Button(
-            frame,
-            text="Start Game",
-            command=self.validate_tasks,
-            font=("Arial", 12, "bold"),
+        tk.Button(self.task_frame, text="Start Game",  command=self.validate_tasks,            font=("Arial", 12, "bold"),
             bg="#f86b53",
             fg="white",
             padx=10,
@@ -115,279 +75,353 @@ class MinimumCostTaskAssignmentGame:
             width=20,
             height=1,
             activebackground="#e74755",
-            activeforeground="white",
-        ).pack(pady=20)
+            activeforeground="white",).pack(pady=20)
 
-    def create_game_frame(self):
-        frame = self.frames["Game"]
-        frame.grid_rowconfigure(0, weight=1)
-        frame.grid_columnconfigure(0, weight=1)
 
-        self.result_frame = ttk.Frame(frame)
-        self.result_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+    def create_result_frame(self, cost_matrix, assignment, total_cost, elapsed_time):
+        # Hide previous frames
+        if hasattr(self, 'name_frame'):
+            self.name_frame.pack_forget()
+        if hasattr(self, 'task_frame'):
+            self.task_frame.pack_forget()
+        
+        # Create result frame
+        self.result_frame = tk.Frame(self.root, bg="white")
+        self.result_frame.pack(fill=tk.BOTH, expand=True)
 
-        self.result_text_widget = tk.Text(self.result_frame, wrap="word", font=("Arial", 12), height=5)
-        self.result_text_widget.grid(row=0, column=0, sticky="ew")
-
-        # Create a Treeview widget for the optimal assignment
-        columns = ("Task", "Employee")
-        self.assignment_tree = ttk.Treeview(self.result_frame, columns=columns, show="headings")
-        self.assignment_tree.heading("Task", text="Task")
-        self.assignment_tree.heading("Employee", text="Employee")
-        self.assignment_tree.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
-
-        tk.Button(
-        frame,
-        text="Show Cost Matrix",
-        command=lambda: self.show_frame("Matrix"),
-        font=("Arial", 12, "bold"),
-        bg="#f86b53",
-        fg="white",
-        padx=10,
-        pady=5,
-        relief="raised",
-        borderwidth=2,
-        width=20,
-        height=1,
-        activebackground="#e74755",
-        activeforeground="white",
-    ).grid(row=1, column=0, pady=20)
-
-        tk.Button(
-        frame,
-        text="Start New Game",
-        command=lambda: self.show_frame("Name"),
-        font=("Arial", 12, "bold"),
-        bg="#f86b53",
-        fg="white",
-        padx=10,
-        pady=5,
-        relief="raised",
-        borderwidth=2,
-        width=20,
-        height=1,
-        activebackground="#e74755",
-        activeforeground="white",
-    ).grid(row=2, column=0, pady=20)
-
-    def create_matrix_frame(self):
-        frame = self.frames["Matrix"]
-        frame.grid_rowconfigure(0, weight=1)
-        frame.grid_columnconfigure(0, weight=1)
-
-        self.canvas = tk.Canvas(frame, bg="white")
-        self.canvas.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-
-        self.matrix_frame = ttk.Frame(self.canvas)
-        self.canvas.create_window((0, 0), window=self.matrix_frame, anchor="nw")
-
-        tk.Button(
-            frame,
-            text="Back to Game",
-            command=lambda: self.show_frame("Game"),
-            font=("Arial", 12, "bold"),
-            bg="#f86b53",
-            fg="white",
-            padx=10,
-            pady=5,
-            relief="raised",
-            borderwidth=2,
-            width=20,
-            height=1,
-            activebackground="#e74755",
-            activeforeground="white",
-        ).grid(row=1, column=0, pady=20)
-
-    def create_database_results_frame(self):
-        frame = self.frames["DatabaseResults"]
-
-        self.database_results_text = tk.Text(frame, wrap="word", font=("Arial", 12))
-        self.database_results_text.pack(expand=True, fill="both", padx=10, pady=10)
-
-        tk.Button(
-            frame,
-            text="Fetch Results",
-            command=self.fetch_results_from_database,
-            font=("Arial", 12, "bold"),
-            bg="#f86b53",
-            fg="white",
-            padx=10,
-            pady=5,
-            relief="raised",
-            borderwidth=2,
-            width=20,
-            height=1,
-            activebackground="#e74755",
-            activeforeground="white",
-        ).pack(pady=20)
-
-        tk.Button(
-            frame,
-            text="Back to Menu",
-            command=lambda: self.show_frame("Menu"),
-            font=("Arial", 12, "bold"),
-            bg="#f86b53",
-            fg="white",
-            padx=10,
-            pady=5,
-            relief="raised",
-            borderwidth=2,
-            width=20,
-            height=1,
-            activebackground="#e74755",
-            activeforeground="white",
-        ).pack(pady=20)
-
-    def validate_name(self):
-        name = self.user_name.get().strip()
-        if not name:
-            self.name_error_label.config(text="Name cannot be empty or spaces only.")
-        else:
-            self.name_error_label.config(text="")
-            self.show_frame("Task")
-
-    def validate_tasks(self):
-        task_input = self.task_entry.get().strip()
-        try:
-            n = int(task_input)
-            if n <= 0:
-                raise ValueError("The number of tasks must be greater than 0.")
-            self.task_error_label.config(text="")
-            self.start_game()
-        except ValueError:
-            self.task_error_label.config(text="Please enter a valid positive integer for the number of tasks.")
-
-    def start_game(self):
-        self.generate_cost_matrix(self.num_tasks.get())
-        self.find_optimal_assignment()
-        self.save_result_to_database()
-        self.display_results(self.num_tasks.get())
-        self.show_frame("Game")
-
-    def generate_cost_matrix(self, n):
-        self.cost_matrix = [[random.randint(20, 200) for _ in range(n)] for _ in range(n)]
-
-    def find_optimal_assignment(self):
-        start_time = time.perf_counter()
-        row_ind, col_ind = linear_sum_assignment(self.cost_matrix)
-        end_time = time.perf_counter()
-
-        self.total_cost = sum(self.cost_matrix[row][col] for row, col in zip(row_ind, col_ind))
-        self.execution_time = end_time - start_time
-        self.assignment = list(zip(row_ind, col_ind))
-
-    def display_results(self, n):
-        # Clear the previous content
-        self.result_text_widget.delete(1.0, tk.END)
+        # Text widget for result summary
+        self.result_text_widget = tk.Text(self.result_frame, height=3, width=80, wrap=tk.WORD, bg="white", font=("Arial", 12))
+        self.result_text_widget.pack(padx=20, pady=20)
 
         # Insert the result text
         result_text = (
-            f"User: {self.user_name.get()}\n"
-            f"Total Minimum Cost: ${self.total_cost}\n"
-            f"Time Taken: {self.execution_time:.6f} seconds\n"
-            "Optimal Assignment:\n"
+            f"Total Minimum Cost: ${total_cost:.2f}\n"
+            f"Time Taken: {elapsed_time:.8f} seconds\n"
         )
         self.result_text_widget.insert(tk.END, result_text)
 
         # Apply formatting
         self.result_text_widget.tag_configure("header", font=("Arial", 14, "bold"), foreground="blue")
         self.result_text_widget.tag_configure("body", font=("Arial", 12))
-
+        
         # Add tags to the text
         self.result_text_widget.tag_add("header", "1.0", "1.0 lineend")
         self.result_text_widget.tag_add("body", "2.0", tk.END)
 
-        # Clear the previous Treeview content
-        for item in self.assignment_tree.get_children():
-            self.assignment_tree.delete(item)
+        # Treeview for assignments
+        tk.Label(self.result_frame, text="Optimal Assignment:", bg="white", font=("Arial", 14, "bold")).pack(pady=10)
 
-        # Insert the assignment data
-        for task, employee in self.assignment:
-            self.assignment_tree.insert("", "end", values=(f"Task {task+1}", f"Employee {employee+1}"))
+        self.assignment_tree = ttk.Treeview(self.result_frame, columns=("Task", "Employee"), show="headings", height=10)
+        self.assignment_tree.heading("Task", text="Task")
+        self.assignment_tree.heading("Employee", text="Employee")
+        self.assignment_tree.pack(pady=10)
 
-        # Increase the height of the Treeview
-        self.assignment_tree.configure(height=20)
+        # Format the assignment list
+        for a in assignment:
+            task = a['row'] + 1
+            employee = a['col'] + 1
+            self.assignment_tree.insert("", "end", values=(f"Task {task}", f"Employee {employee}"))
 
-        # Show the result frame
-        self.show_frame("Game")
-        # Clear the matrix frame
-        for widget in self.matrix_frame.winfo_children():
-            widget.destroy()
+        # Buttons for navigation 
+        tk.Button(self.result_frame, text="Start New Game", command=self.show_name_frame,            font=("Arial", 12, "bold"),
+            bg="#f86b53",
+            fg="white",
+            padx=10,
+            pady=5,
+            relief="raised",
+            borderwidth=2,
+            width=20,
+            height=1,
+            activebackground="#e74755",
+            activeforeground="white",).pack(pady=10)
+        tk.Button(self.result_frame, text="Show Cost Matrix", command=lambda: self.show_cost_matrix(cost_matrix,assignment) ,  font=("Arial", 12, "bold"),
+            bg="#f86b53",
+            fg="white",
+            padx=10,
+            pady=5,
+            relief="raised",
+            borderwidth=2,
+            width=20,
+            height=1,
+            activebackground="#e74755",
+            activeforeground="white",).pack(pady=10)
+        tk.Button(self.result_frame, text="Back to Menu", command=self.create_menu,            font=("Arial", 12, "bold"),
+            bg="#f86b53",
+            fg="white",
+            padx=10,
+            pady=5,
+            relief="raised",
+            borderwidth=2,
+            width=20,
+            height=1,
+            activebackground="#e74755",
+            activeforeground="white",).pack(pady=10)
 
-        # Create labels for the x-axis (tasks)
-        for j in range(n):
-            label = ttk.Label(self.matrix_frame, text=f"T{j+1}", background="white", font=("Arial", 10, "bold"))
-            label.grid(row=0, column=j+1, padx=5, pady=5)
+    def validate_name(self):
+        self.player_name = self.name_entry.get().strip()  # Store the player's name
+        if not self.player_name:
+            self.warning_label.config(text="Name cannot be empty.")
+        else:
+            self.create_task_frame()
+    def validate_tasks(self):
+        try:
+            num_tasks = int(self.task_entry.get().strip())
+            if num_tasks <= 0:
+                raise ValueError("Number of tasks must be a positive integer.")
+        except ValueError:
+            self.task_warning_label.config(text="Please enter a valid positive integer for the number of tasks.")
+        else:
+            self.run_game(num_tasks)
 
-        # Create labels for the y-axis (employees)
-        for i in range(n):
-            label = ttk.Label(self.matrix_frame, text=f"Emp{i+1}", background="white", font=("Arial", 10, "bold"))
-            label.grid(row=i+1, column=0, padx=5, pady=5)
+    def run_game(self, num_tasks):
+        try:
+            # Generate random cost matrix
+            cost_matrix = np.random.randint(20, 201, size=(num_tasks, num_tasks))
+            print(f"Cost matrix:\n{cost_matrix}")  # Debug output
 
-        # Create the cost matrix with alternating background colors
-        for i in range(n):
-            for j in range(n):
-                label = ttk.Label(self.matrix_frame, text=f"${self.cost_matrix[i][j]}", background="white")
-                label.grid(row=i+1, column=j+1, padx=5, pady=5)
-                if (i + j) % 2 == 0:
-                    label.configure(background="#f0f0f0")
-                else:
-                    label.configure(background="#d0d0d0")
+            start_time = time.time()
+            row_ind, col_ind = self.hungarian_algorithm(cost_matrix)
+            end_time = time.time()
 
-        self.canvas.config(scrollregion=self.canvas.bbox("all"))
+            assignment = list(zip(row_ind, col_ind))
+            total_cost = self.calc_costs(cost_matrix, assignment)
+            elapsed_time = end_time - start_time
 
-        # Clear the matrix frame
-        for widget in self.matrix_frame.winfo_children():
-            widget.destroy()
+            # Convert numpy types to native Python types
+            assignment_list = [{'row': int(r), 'col': int(c)} for r, c in assignment]  # List of dictionaries
+            total_cost = float(total_cost)
+            elapsed_time = float(elapsed_time)
 
-        # Create labels for the x-axis (tasks)
-        for j in range(n):
-            label = ttk.Label(self.matrix_frame, text=f"T{j+1}", background="white", font=("Arial", 10, "bold"))
-            label.grid(row=0, column=j+1, padx=5, pady=5)
+            # Display results
+            self.create_result_frame(cost_matrix, assignment_list, total_cost, elapsed_time)
 
-        # Create labels for the y-axis (employees)
-        for i in range(n):
-            label = ttk.Label(self.matrix_frame, text=f"Emp{i+1}", background="white", font=("Arial", 10, "bold"))
-            label.grid(row=i+1, column=0, padx=5, pady=5)
+            # Record results in Firebase
+            db.collection('minimum_cost_game_results').add({
+                'player_name': self.player_name,  # Save the player's name
+                'num_tasks': num_tasks,
+                'total_cost': total_cost,
+                'time_taken': elapsed_time
+            })
 
-        # Create the cost matrix with alternating background colors
-        for i in range(n):
-            for j in range(n):
-                label = ttk.Label(self.matrix_frame, text=f"${self.cost_matrix[i][j]}", background="white")
-                label.grid(row=i+1, column=j+1, padx=5, pady=5)
-                if (i + j) % 2 == 0:
-                    label.configure(background="#f0f0f0")
-                else:
-                    label.configure(background="#d0d0d0")
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {str(e)}")
 
-        self.canvas.config(scrollregion=self.canvas.bbox("all"))
 
-    def fetch_results_from_database(self):
-        self.database_results_text.delete(1.0, tk.END)
-        results = db.collection('minimum_cost_game_results').order_by('timestamp').stream()
-        for result in results:
-            data = result.to_dict()
-            result_text = (
-                f"User: {data['user_name']}\n"
-                f"Number of Tasks: {data['num_tasks']}\n"
-                f"Total Minimum Cost: ${data['total_cost']}\n"
-                f"Time Taken: {data['execution_time']:.6f} seconds\n"
-                f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(data['timestamp']))}\n"
-                "----------------------------------------\n"
-            )
-            self.database_results_text.insert(tk.END, result_text)
+    def hungarian_step(self, mat):
+        for row_num in range(mat.shape[0]):
+            mat[row_num] = mat[row_num] - np.min(mat[row_num])
+        for col_num in range(mat.shape[1]):
+            mat[:, col_num] = mat[:, col_num] - np.min(mat[:, col_num])
+        return mat
 
-    def save_result_to_database(self):
-        data = {
-            'user_name': self.user_name.get(),
-            'num_tasks': self.num_tasks.get(),
-            'total_cost': self.total_cost,
-            'execution_time': self.execution_time,
-            'timestamp': time.time()
-        }
-        db.collection('minimum_cost_game_results').add(data)
+    def min_zeros(self, zero_mat, mark_zero):
+        min_row = [99999, -1]
+        for row_num in range(zero_mat.shape[0]):
+            if np.sum(zero_mat[row_num] == True) > 0 and min_row[0] > np.sum(zero_mat[row_num] == True):
+                min_row = [np.sum(zero_mat[row_num] == True), row_num]
+        zero_index = np.where(zero_mat[min_row[1]] == True)[0][0]
+        mark_zero.append((min_row[1], zero_index))
+        zero_mat[min_row[1], :] = False
+        zero_mat[:, zero_index] = False
 
+    def mark_matrix(self, mat):
+        cur_mat = mat
+        zero_bool_mat = (cur_mat == 0)
+        zero_bool_mat_copy = zero_bool_mat.copy()
+        marked_zero = []
+        while (True in zero_bool_mat_copy):
+            self.min_zeros(zero_bool_mat_copy, marked_zero)
+        marked_zero_row = []
+        marked_zero_col = []
+        for i in range(len(marked_zero)):
+            marked_zero_row.append(marked_zero[i][0])
+            marked_zero_col.append(marked_zero[i][1])
+        non_marked_row = list(set(range(cur_mat.shape[0])) - set(marked_zero_row))
+        marked_cols = []
+        check_switch = True
+        while check_switch:
+            check_switch = False
+            for i in range(len(non_marked_row)):
+                row_array = zero_bool_mat[non_marked_row[i], :]
+                for j in range(row_array.shape[0]):
+                    if row_array[j] == True and j not in marked_cols:
+                        marked_cols.append(j)
+                        check_switch = True
+            for row_num, col_num in marked_zero:
+                if row_num not in non_marked_row and col_num in marked_cols:
+                    non_marked_row.append(row_num)
+                    check_switch = True
+        marked_rows = list(set(range(mat.shape[0])) - set(non_marked_row))
+        return marked_zero, marked_rows, marked_cols
+
+    def adjust_matrix(self, mat, cover_rows, cover_cols):
+        cur_mat = mat
+        non_zero_element = []
+        for row in range(len(cur_mat)):
+            if row not in cover_rows:
+                for i in range(len(cur_mat[row])):
+                    if i not in cover_cols:
+                        non_zero_element.append(cur_mat[row][i])
+        min_num = min(non_zero_element) if non_zero_element else 0
+
+        for row in range(len(cur_mat)):
+            if row not in cover_rows:
+                for i in range(len(cur_mat[row])):
+                    if i not in cover_cols:
+                        cur_mat[row, i] = cur_mat[row, i] - min_num
+        for row in range(len(cover_rows)):
+            for col in range(len(cover_cols)):
+                cur_mat[cover_rows[row], cover_cols[col]] = cur_mat[cover_rows[row], cover_cols[col]] + min_num
+
+        return cur_mat
+
+    def hungarian_algorithm(self, cost_matrix):
+        n = cost_matrix.shape[0]
+        cur_mat = copy.deepcopy(cost_matrix)
+
+        cur_mat = self.hungarian_step(cur_mat)
+
+        count_zero_lines = 0
+        assignment = []
+
+        while count_zero_lines < n:
+            ans_pos, marked_rows, marked_cols = self.mark_matrix(cur_mat)
+            count_zero_lines = len(marked_rows) + len(marked_cols)
+
+            if count_zero_lines < n:
+                cur_mat = self.adjust_matrix(cur_mat, marked_rows, marked_cols)
+
+        row_ind = [pos[0] for pos in ans_pos]
+        col_ind = [pos[1] for pos in ans_pos]
+
+        return row_ind, col_ind
+
+    def calc_costs(self, cost_matrix, assignment):
+        total = 0
+        for a in assignment:
+            if a[0] < cost_matrix.shape[0] and a[1] < cost_matrix.shape[1]:  # Validate indices
+                total += cost_matrix[a[0], a[1]]
+        return total
+
+    def show_cost_matrix(self, cost_matrix, assignment):
+        cost_matrix_window = tk.Toplevel(self.root)
+        cost_matrix_window.title("Cost Matrix")
+        cost_matrix_window.geometry("800x800")
+        cost_matrix_window.config(bg="white")
+
+        tk.Label(cost_matrix_window, text="Cost Matrix:", bg="white", font=("Arial", 16)).pack(pady=10)
+
+        rows, cols = cost_matrix.shape
+
+        # Create a frame for the matrix with scrollbars
+        matrix_frame = tk.Frame(cost_matrix_window, bg="white")
+        matrix_frame.pack(fill=tk.BOTH, expand=True)
+
+        vsb = tk.Scrollbar(matrix_frame, orient="vertical")
+        vsb.pack(side='right', fill='y')
+
+        hsb = tk.Scrollbar(matrix_frame, orient="horizontal")
+        hsb.pack(side='bottom', fill='x')
+
+        canvas = tk.Canvas(matrix_frame, yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        canvas.pack(side='left', fill='both', expand=True)
+
+        vsb.config(command=canvas.yview)
+        hsb.config(command=canvas.xview)
+
+        # Create a frame inside the canvas
+        matrix_canvas = tk.Frame(canvas, bg="white")
+        canvas.create_window((0, 0), window=matrix_canvas, anchor='nw')
+
+        # Adding column headers
+        tk.Label(matrix_canvas, text="", bg="white").grid(row=0, column=0, padx=5, pady=5)
+        for j in range(cols):
+            tk.Label(matrix_canvas, text=f"Task {j+1}", bg="white", font=("Arial", 12), relief="solid", width=10, anchor="center").grid(row=0, column=j+1, padx=1, pady=1)
+
+        # Adding row headers and matrix cells
+        for i in range(rows):
+            tk.Label(matrix_canvas, text=f"Emp {i+1}", bg="white", font=("Arial", 12), relief="solid", width=10, anchor="center").grid(row=i+1, column=0, padx=1, pady=1)
+            for j in range(cols):
+                is_highlighted = any(a['row'] == i and a['col'] == j for a in assignment)
+                color = "#d0d0d0" if (i + j) % 2 == 0 else "#f0f0f0"
+                if is_highlighted:
+                    color = "#ffeb3b"  # Highlight color
+
+                label = tk.Label(matrix_canvas, text=f"${cost_matrix[i, j]:.2f}", bg=color, font=("Arial", 12), relief="solid", width=10, anchor="center")
+                label.grid(row=i+1, column=j+1, padx=1, pady=1)
+
+        # Update canvas scroll region
+        matrix_canvas.update_idletasks()
+        canvas.config(scrollregion=canvas.bbox("all"))
+
+        tk.Button(cost_matrix_window, text="Close", command=cost_matrix_window.destroy, font=("Arial", 12, "bold"),
+            bg="#f86b53",
+            fg="white",
+            padx=10,
+            pady=5,
+            relief="raised",
+            borderwidth=2,
+            width=20,
+            height=1,
+            activebackground="#e74755",
+            activeforeground="white",).pack(pady=10)
+
+    def view_results(self):
+        results_window = tk.Toplevel(self.root)
+        results_window.title("Game Results")
+        results_window.geometry("800x650")
+        results_window.config(bg="white")
+
+        tk.Label(results_window, text="Game History:", font=("Arial", 14), bg="white").pack(pady=20)
+
+        # Create Treeview
+        columns = ("player_name", "num_tasks", "total_cost", "time_taken")
+        results_tree = ttk.Treeview(results_window, columns=columns, show="headings")
+        results_tree.pack(pady=10, fill="both", expand=True)
+
+        # Define column headings
+        results_tree.heading("player_name", text="Player Name", anchor="w")
+        results_tree.heading("num_tasks", text="Number of Tasks", anchor="w")
+        results_tree.heading("total_cost", text="Total Cost", anchor="w")
+        results_tree.heading("time_taken", text="Time Taken", anchor="w")
+
+        # Define column widths
+        results_tree.column("player_name", width=150, anchor="w")
+        results_tree.column("num_tasks", width=150, anchor="w")
+        results_tree.column("total_cost", width=150, anchor="w")
+        results_tree.column("time_taken", width=150, anchor="w")
+
+        # Fetch results from Firebase
+        try:
+            results = db.collection('minimum_cost_game_results').stream()
+            for result in results:
+                data = result.to_dict()
+                player_name = data.get('player_name', 'Unknown')  # Use 'Unknown' if player_name is missing
+                num_tasks = data.get('num_tasks', 'N/A')
+                total_cost = f"${data.get('total_cost', 0.0):.2f}"
+                time_taken = f"{data.get('time_taken', 0.0):.8f} seconds"
+
+                results_tree.insert("", "end", values=(
+                    player_name,
+                    num_tasks,
+                    total_cost,
+                    time_taken
+                ))
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred while fetching results: {str(e)}")
+
+    def show_name_frame(self):
+        if hasattr(self, 'task_frame'):
+            self.task_frame.pack_forget()
+        if hasattr(self, 'result_frame'):
+            self.result_frame.pack_forget()
+        if hasattr(self, 'cost_matrix_window'):
+            self.cost_matrix_window.destroy()
+
+        self.name_frame.pack(fill=tk.BOTH, expand=True)
+
+# Tkinter main loop
 if __name__ == "__main__":
     root = tk.Tk()
-    game = MinimumCostTaskAssignmentGame(root)
+    game = TaskAssignmentGame(root)
     root.mainloop()
