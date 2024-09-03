@@ -45,14 +45,13 @@ def save_to_firestore(solutions):
         collection_ref.add({"solution": solution_str})
         print(f"Solution {idx + 1} saved")
 
-
 def main():
-    n = 16
+    n = 8
     solutions = []
     threads = []
 
-    # Start time
-    start_time = time.time()
+    # Start time for finding solutions
+    find_start_time = time.time()
 
     # Create and start 4 threads separately
     thread1 = threading.Thread(target=find_solutions, args=(1, solutions, n))
@@ -70,16 +69,26 @@ def main():
     for thread in threads:
         thread.join()
 
-    # End time
-    end_time = time.time()
+    # End time for finding solutions
+    find_end_time = time.time()
 
     # Save distinct solutions to Firestore
     distinct_solutions = list(set(tuple(sol) for sol in solutions))
+
+    # Start time for saving solutions
+    save_start_time = time.time()
     save_to_firestore(distinct_solutions)
+    # End time for saving solutions
+    save_end_time = time.time()
+
+    # Total time taken
+    total_time_taken = (find_end_time - find_start_time) + (save_end_time - save_start_time)
 
     # Print results
     print(f"Number of distinct solutions: {len(distinct_solutions)}")
-    print(f"Time taken: {end_time - start_time} seconds")
+    print(f"Time taken to find solutions: {find_end_time - find_start_time} seconds")
+    print(f"Time taken to save solutions: {save_end_time - save_start_time} seconds")
+    print(f"Total time taken: {total_time_taken} seconds")
 
 if __name__ == "__main__":
     main()
