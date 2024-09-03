@@ -120,7 +120,7 @@ class NQueensUI:
         try:
             if not firebase_admin._apps:  # Check if Firebase is already initialized
                 cred = credentials.Certificate(
-                    "pdsa-cw-firebase-adminsdk-fekak-92d0a01b44.json"
+                    "pdsa-cw-4fe71-firebase-adminsdk-mvt7n-55e5f9e362.json"
                 )
                 firebase_admin.initialize_app(cred)
                 self.db = firestore.client()
@@ -203,12 +203,16 @@ class NQueensUI:
     def validate_and_start_game(self):
         username = self.username.get()
 
-        # Validate that the username only contains letters and numbers
-        if re.match("^[A-Za-z0-9]+$", username):
-            self.error_label.config(text="")  # Clear any previous error message
-            self.start_game()
-        else:
-            self.error_label.config(text="Invalid Input: Username can only contain letters and numbers.")
+        try:
+            # Validate that the username only contains letters and numbers
+            if re.match("^[A-Za-z0-9]+$", username):
+                self.error_label.config(text="")  # Clear any previous error message
+                self.start_game()
+            else:
+                raise ValueError("Invalid Input: Username can only contain letters and numbers.")
+        except ValueError as e:
+            self.error_label.config(text=str(e))
+
 
     def start_game(self):
         # Clear the existing widgets (username entry, start button, and error label)
@@ -269,33 +273,49 @@ class NQueensUI:
             self.invalid_move_label.config(text="")
             self.final_move_label.config(text="")
 
-            if action:
-                # Valid move
-                self.moves_label.config(text=f"Moves: {self.game.moves_count}")
-                self.queens_left_label.config(text=f"♛ left: {self.game.queens_left}")
+            try:
+                if action:
+                    # Valid move
+                    self.moves_label.config(text=f"Moves: {self.game.moves_count}")
+                    self.queens_left_label.config(text=f"♛ left: {self.game.queens_left}")
 
-                if self.game.queens_left == 0:
-                    if self.is_move_paths_taken(self.game.move_paths):
-                        self.final_move_label_taken.config(text="The answer has already been taken! Try again.")
-                        self.board_locked = True  # Lock the board
-                    else:
-                        end_time = time.time()
-                        game_time = round(end_time - self.start_time, 2)
-                        self.final_move_label.config(text=f"Congratulations {self.username.get()}! You have placed all queens correctly. Time taken: {game_time} seconds.")
-                        self.board_locked = True
+                    if self.game.queens_left == 0:
+                        try:
+                            if self.is_move_paths_taken(self.game.move_paths):
+                                raise ValueError("The answer has already been taken! Try again.")
+                            else:
+                                end_time = time.time()
+                                game_time = round(end_time - self.start_time, 2)
+                                self.final_move_label.config(text=f"Congratulations {self.username.get()}! You have placed all queens correctly. Time taken: {game_time} seconds.")
+                                self.board_locked = True  # Lock the board
 
-                        # Save the game record to Firebase
-                        self.db.collection("nqueens").add({
-                            "username": self.username.get(),
-                            "moves_count": self.game.moves_count,
-                            "game_time": game_time,
-                            "move_paths": self.game.move_paths
-                        })
-                        # Check and reset solutions if all have been found
-                        # self.check_and_reset_solutions()
-            else:
-                # Invalid move
-                self.invalid_move_label.config(text="     Invalid  Move:  The queen can  be  attacked  by  another  queen!")
+                                # Save the game record to Firebase
+                                try:
+                                    self.db.collection("nqueens").add({
+                                        "username": self.username.get(),
+                                        "moves_count": self.game.moves_count,
+                                        "game_time": game_time,
+                                        "move_paths": self.game.move_paths
+                                    })
+                                except Exception as e:
+                                    print(f"Error saving to Firebase: {e}")
+                                    self.final_move_label.config(text=f"Game completed, but could not save record: {e}")
+
+                                # Check and reset solutions if all have been found
+                                # self.check_and_reset_solutions()
+
+                        except ValueError as e:
+                            self.final_move_label_taken.config(text=str(e))
+                            self.board_locked = True  # Lock the board
+
+                else:
+                    # Invalid move
+                    self.invalid_move_label.config(text="   Invalid  Move:  The  queen  can  be  attacked  by  another  queen!")
+
+            except Exception as e:
+                print(f"An error occurred: {e}")
+                self.invalid_move_label.config(text="An unexpected error occurred. Please try again.")
+
 
 
                 
