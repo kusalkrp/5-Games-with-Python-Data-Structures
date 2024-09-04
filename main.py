@@ -1,5 +1,10 @@
 import tkinter as tk
 from SixteenQueensPuzzle import NQueensUI
+from TowerofHanoi import TowerOfHanoi
+from predict_value_index import PredictValueIndexGame
+from ShortestPath import ShortestPath
+from Minimum_Cost import TaskAssignmentGame
+
 from PIL import Image, ImageTk, ImageDraw
 import os
 #from ShortestPath import ShortestPath  # Import the second game module
@@ -63,15 +68,15 @@ class MainApp:
 
     def launch_game1(self):
         game_window = tk.Toplevel(self.master)
-    
+        TowerOfHanoi(game_window)  # Launch the Tower of Hanoi game
 
     def launch_game2(self):
         game_window = tk.Toplevel(self.master)
-      
+        ShortestPath(game_window)  # Launch the second ga
 
     def launch_game3(self):
         game_window = tk.Toplevel(self.master)
-      
+        TaskAssignmentGame(game_window)
 
     def launch_game4(self):
         game_window = tk.Toplevel(self.master)
@@ -82,7 +87,7 @@ class MainApp:
 
     def launch_game5(self):
         game_window = tk.Toplevel(self.master)
-        
+        PredictValueIndexGame(game_window)
 
 if __name__ == "__main__":
     root = tk.Tk()
