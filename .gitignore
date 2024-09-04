@@ -9,3 +9,7 @@ logs/
 
 # Ignore Firebase credentials
 pdsa-cw-firebase-adminsdk-fekak-92d0a01b44.json
+
+dist
+
+build
