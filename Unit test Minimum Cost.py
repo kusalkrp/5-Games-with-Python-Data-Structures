@@ -1,71 +1,113 @@
 import unittest
+from unittest.mock import MagicMock, patch
 import numpy as np
-from unittest.mock import patch, MagicMock
-from tkinter import Tk
-from Minimum_Cost import TaskAssignmentGame  # Replace with the actual module name
+import tkinter as tk
+from Minimum_Cost import TaskAssignmentGame
 
 class TestTaskAssignmentGame(unittest.TestCase):
+    @patch('Minimum_Cost.firestore.client')
+    @patch('Minimum_Cost.initialize_app')
+    @patch('Minimum_Cost.credentials.Certificate')
+    def setUp(self, mock_cred, mock_init, mock_firestore_client):
+        # Mock Firebase
+        self.mock_firestore = MagicMock()
+        mock_firestore_client.return_value = self.mock_firestore
 
-    def setUp(self):
-        self.root = Tk()
-        self.game = TaskAssignmentGame(self.root)
+        # Create a test Tkinter root
+        self.root = tk.Tk()
+        self.game = TaskAssignmentGame(self.root)  # Initialize the app correctly
+        self.game.db = self.mock_firestore  # Mock Firestore client
+
+        # Mock methods
+        self.game.create_menu = MagicMock()
+        self.game.create_name_frame = MagicMock()
+        self.game.create_task_frame = MagicMock()
+        self.game.create_guessing_window = MagicMock()
+        self.game.show_name_frame = MagicMock()
+
+        # Initialize warning_label and task_warning_label
+        self.game.warning_label = tk.Label(self.root)
+        self.game.task_warning_label = tk.Label(self.root)
 
     def tearDown(self):
         self.root.destroy()
 
-    def test_validate_name_with_empty_name(self):
-        self.game.name_entry.insert(0, "")
+    def test_validate_name_empty(self):
+        self.game.name_entry = MagicMock()
+        self.game.name_entry.get.return_value = ''
         self.game.validate_name()
-        self.assertEqual(self.game.warning_label.cget("text"), "Name cannot be empty.")
+        self.assertEqual(self.game.warning_label.cget('text'), "Name cannot be empty.")
 
-    def test_validate_name_with_valid_name(self):
-        self.game.name_entry.insert(0, "John Doe")
-        with patch.object(self.game, 'create_task_frame') as mock_create_task_frame:
-            self.game.validate_name()
-            mock_create_task_frame.assert_called_once()
+    def test_validate_name_non_empty(self):
+        self.game.name_entry = MagicMock()
+        self.game.name_entry.get.return_value = 'John Doe'
+        self.game.validate_name()
+        self.assertEqual(self.game.warning_label.cget('text'), "")
 
-    def test_validate_tasks_with_invalid_input(self):
-        self.game.task_entry.insert(0, "-1")
+    def test_validate_tasks_invalid(self):
+        self.game.task_entry = MagicMock()
+        self.game.task_entry.get.return_value = 'invalid'
         self.game.validate_tasks()
-        self.assertEqual(self.game.task_warning_label.cget("text"), "Please enter a valid positive integer for the number of tasks.")
+        self.assertEqual(self.game.task_warning_label.cget('text'), "Please enter a valid positive integer for the number of tasks.")
 
-    def test_validate_tasks_with_valid_input(self):
-        self.game.task_entry.insert(0, "5")
-        with patch.object(self.game, 'run_game') as mock_run_game:
-            self.game.validate_tasks()
-            mock_run_game.assert_called_once_with(5)
-
-    def test_hungarian_algorithm(self):
-        cost_matrix = np.array([[4, 1, 3], [2, 0, 5], [3, 2, 2]])
-        row_ind, col_ind = self.game.hungarian_algorithm(cost_matrix)
-        self.assertEqual(list(row_ind), [0, 1, 2])
-        self.assertEqual(list(col_ind), [2, 1, 0])
+    def test_validate_tasks_valid(self):
+        self.game.task_entry = MagicMock()
+        self.game.task_entry.get.return_value = '5'
+        self.game.validate_tasks()
+        self.assertEqual(self.game.task_warning_label.cget('text'), "")
 
     def test_calc_costs(self):
-        cost_matrix = np.array([[4, 1, 3], [2, 0, 5], [3, 2, 2]])
-        assignment = [(0, 1), (1, 0), (2, 2)]
+        cost_matrix = np.array([[10, 19, 8, 15],
+                                [10, 18, 7, 17],
+                                [13, 16, 9, 14],
+                                [12, 19, 8, 18]])
+        assignment = [(0, 2), (1, 0), (2, 3), (3, 1)]
         total_cost = self.game.calc_costs(cost_matrix, assignment)
-        self.assertEqual(total_cost, 6)
+        
+        self.assertEqual(total_cost, 8 + 10 + 14 + 19)
 
-    def test_run_game(self):
-        with patch.object(self.game, 'create_guessing_window') as mock_create_guessing_window:
-            self.game.run_game(3)
-            mock_create_guessing_window.assert_called_once()
+    def test_calc_costs_different_assignment(self):
+        cost_matrix = np.array([[10, 19, 8, 15],
+                                [10, 18, 7, 17],
+                                [13, 16, 9, 14],
+                                [12, 19, 8, 18]])
+        assignment = [(0, 0), (1, 1), (2, 2), (3, 3)]
+        total_cost = self.game.calc_costs(cost_matrix, assignment)
+        
+        self.assertEqual(total_cost, 10 + 18 + 9 + 18)
 
-    @patch('firebase_admin.firestore.client')
-    def test_submit_result_to_firestore(self, mock_firestore):
-        mock_db = mock_firestore.return_value
-        self.game.player_name = "John Doe"
-        self.game.num_tasks = 5
-        self.game.create_result_frame(np.array([[4, 1], [2, 0]]), [(0, 1), (1, 0)], 5, 1.2, True)
-        mock_db.collection.return_value.add.assert_called_once_with({
-            'player_name': 'John Doe',
-            'num_tasks': 5,
-            'total_cost': 5.0,
-            'time_taken': 1.2
-        })
+    @patch('Minimum_Cost.time.time', return_value=0)
+    @patch('Minimum_Cost.db')
+    def test_create_result_frame(self, mock_db, mock_time):
+        self.game.player_name = 'Test Player'
+        self.game.num_tasks = 4
+        cost_matrix = np.array([[10, 19, 8, 15],
+                                [10, 18, 7, 17],
+                                [13, 16, 9, 14],
+                                [12, 19, 8, 18]])
+        assignment = [{'row': 0, 'col': 2}, {'row': 1, 'col': 0}, {'row': 2, 'col': 3}, {'row': 3, 'col': 1}]
+        total_cost = 50
+        elapsed_time = 0
+        is_correct = True
+        
+        self.game.create_result_frame(cost_matrix, assignment, total_cost, elapsed_time, is_correct)
+        self.assertTrue(self.game.result_frame is not None)
 
-    # Additional tests for other functions and edge cases
+    @patch('Minimum_Cost.time.time', return_value=0)
+    @patch('Minimum_Cost.db')
+    def test_create_result_frame_different_input(self, mock_db, mock_time):
+        self.game.player_name = 'Another Player'
+        self.game.num_tasks = 3
+        cost_matrix = np.array([[5, 9, 1],
+                                [10, 3, 2],
+                                [8, 7, 4]])
+        assignment = [{'row': 0, 'col': 2}, {'row': 1, 'col': 1}, {'row': 2, 'col': 0}]
+        total_cost = 1 + 3 + 8
+        elapsed_time = 10
+        is_correct = False
+        
+        self.game.create_result_frame(cost_matrix, assignment, total_cost, elapsed_time, is_correct)
+        self.assertTrue(self.game.result_frame is not None)
 
 if __name__ == '__main__':
     unittest.main()

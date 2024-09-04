@@ -137,6 +137,9 @@ class TaskAssignmentGame:
         tk.Button(self.guessing_window, text="Submit Guess", command=lambda: self.check_guesses(cost_matrix, correct_assignment), font=("Arial", 12, "bold"),
                 bg="#f86b53", fg="white", padx=10, pady=5, relief="raised", borderwidth=2, width=20, height=1,
                 activebackground="#e74755", activeforeground="white").pack(pady=10)
+        
+        # Record the start time
+        self.start_time = time.time()  # Record start time when the guessing window is opened
 
 
     def submit_guess(self):
@@ -154,10 +157,9 @@ class TaskAssignmentGame:
     def check_guesses(self, cost_matrix, correct_assignment):
         player_assignment = []
         total_cost = 0
-        elapsed_time = 0  # Define elapsed_time variable
 
         for i in range(cost_matrix.shape[0]):
-            j = self.player_guesses.get(i)
+            j = self.row_vars[i].get()
             if j is not None:
                 player_assignment.append({'row': i, 'col': j})
                 total_cost += cost_matrix[i, j]
@@ -165,11 +167,15 @@ class TaskAssignmentGame:
         correct_total_cost = self.calc_costs(cost_matrix, [(a['row'], a['col']) for a in correct_assignment])
         is_correct = total_cost == correct_total_cost
 
+        # Calculate elapsed time
+        self.end_time = time.time()
+        self.game_elapsed_time = self.end_time - self.start_time
+
         # Pass elapsed_time to create_result_frame
-        self.create_result_frame(cost_matrix, player_assignment, total_cost, elapsed_time, is_correct)
+        self.create_result_frame(cost_matrix, player_assignment, total_cost, self.game_elapsed_time, is_correct)
         self.guessing_window.destroy()
 
-    def create_result_frame(self, cost_matrix, correct_assignment, total_cost, elapsed_time, is_correct):
+    def create_result_frame(self, cost_matrix, player_assignment, total_cost, elapsed_time, is_correct):
         # Hide previous frames
         if hasattr(self, 'name_frame'):
             self.name_frame.pack_forget()
@@ -186,14 +192,11 @@ class TaskAssignmentGame:
         self.result_text_widget = tk.Text(self.result_frame, height=4, width=80, wrap=tk.WORD, bg="white", font=("Arial", 12))
         self.result_text_widget.pack(padx=20, pady=20)
         
-        start_time = time.time()
+        # Correct assignment and cost calculation
         row_ind, col_ind = self.hungarian_algorithm(cost_matrix)
-        end_time = time.time()
-
         correct_assignment = list(zip(row_ind, col_ind))
         total_cost = self.calc_costs(cost_matrix, correct_assignment)
-        elapsed_time = end_time - start_time
-
+        
         # Convert numpy types to native Python types
         correct_assignment_list = [{'row': int(r), 'col': int(c)} for r, c in correct_assignment]  # List of dictionaries
         total_cost = float(total_cost)
@@ -243,7 +246,9 @@ class TaskAssignmentGame:
 
         # Buttons for navigation
         tk.Button(self.result_frame, text="Start New Game", command=self.show_name_frame, font=("Arial", 12, "bold"), bg="#f86b53", fg="white", padx=10, pady=5, relief="raised", borderwidth=2, width=20, height=1, activebackground="#e74755", activeforeground="white").pack(pady=20)
-
+        # Buttons for navigation
+        assignment = []  # Define the assignment variable
+        tk.Button(self.result_frame, text="Show Cost Matrix", command=lambda: self.show_cost_matrix(cost_matrix, assignment), font=("Arial", 12, "bold"), bg="#f86b53", fg="white", padx=10, pady=5, relief="raised", borderwidth=2, width=20, height=1, activebackground="#e74755", activeforeground="white").pack(pady=20)
     def validate_name(self):
         self.player_name = self.name_entry.get().strip()  # Store the player's name
         if not self.player_name:
@@ -277,9 +282,6 @@ class TaskAssignmentGame:
                         
         except Exception as e:
             messagebox.showerror("Error", f"An error occurred: {str(e)}")
-
-
-
 
     def hungarian_step(self, mat):
         for row_num in range(mat.shape[0]):
@@ -417,7 +419,7 @@ class TaskAssignmentGame:
             tk.Label(matrix_canvas, text=f"Emp {i+1}", bg="white", font=("Arial", 12), relief="solid", width=10, anchor="center").grid(row=i+1, column=0, padx=1, pady=1)
             for j in range(cols):
                 is_highlighted = any(a['row'] == i and a['col'] == j for a in assignment)
-                color = "#d0d0d0" if (i + j) % 2 == 0 else "#f0f0f0"
+                color = "#ffffff" if (i + j) % 2 == 0 else "#ffffff"
                 if is_highlighted:
                     color = "#ffeb3b"  # Highlight color
 
@@ -438,7 +440,7 @@ class TaskAssignmentGame:
             width=20,
             height=1,
             activebackground="#e74755",
-            activeforeground="white",).pack(pady=10)
+            activeforeground="white").pack(pady=10)
 
     def view_results(self):
         results_window = tk.Toplevel(self.root)
