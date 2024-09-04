@@ -40,7 +40,7 @@ To run this game, follow these instructions:
 
 1. Download the repository as a zip file or clone the branch using the command:
     ```
-    git clone <repository_url>
+    git clone https://github.com/kusalkrp/5-Games-with-Python-Data-Structures/tree/main
     ```
 
 2. Navigate to the "game" folder in the downloaded or cloned repository.
