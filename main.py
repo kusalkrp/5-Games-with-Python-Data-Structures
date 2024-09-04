@@ -1,5 +1,10 @@
 import tkinter as tk
-from TowerOfHanoi import TowerOfHanoi
+from SixteenQueensPuzzle import NQueensUI
+from TowerofHanoi import TowerOfHanoi
+from predict_value_index import PredictValueIndexGame
+from ShortestPath import ShortestPath
+from Minimum_Cost import TaskAssignmentGame
+
 from PIL import Image, ImageTk, ImageDraw
 import os
 #from ShortestPath import ShortestPath  # Import the second game module
@@ -58,31 +63,34 @@ class MainApp:
         img_label = tk.Label(parent, image=self.game_images.get(game_name), bg="#ffffff")
         img_label.grid(row=row, column=0, padx=10, pady=5, sticky="w")
 
-        button = tk.Button(parent, text=game_name, command=command, font=("Arial", 12, "bold"), bg="#f86b53", fg="#ffffff", relief="flat", width=17, anchor="w", padx=10)
+        button = tk.Button(parent, text=game_name, command=command, font=("Arial", 12, "bold"), bg="#68adee", fg="#ffffff", relief="flat", width=17, anchor="w", padx=10)
         button.grid(row=row, column=1, padx=10, pady=5, sticky="w")
 
     def launch_game1(self):
         game_window = tk.Toplevel(self.master)
-        TowerOfHanoi(game_window)  
-    
+        TowerOfHanoi(game_window)  # Launch the Tower of Hanoi game
 
     def launch_game2(self):
         game_window = tk.Toplevel(self.master)
-      
+        ShortestPath(game_window)  # Launch the second ga
 
     def launch_game3(self):
         game_window = tk.Toplevel(self.master)
-      
+        TaskAssignmentGame(game_window)
 
     def launch_game4(self):
         game_window = tk.Toplevel(self.master)
-       
+        size = 16
+        cell_size = 40
+        offset = 40
+        NQueensUI(game_window, size, cell_size, offset)       
 
     def launch_game5(self):
         game_window = tk.Toplevel(self.master)
-        
+        PredictValueIndexGame(game_window)
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = MainApp(root)
     root.mainloop()
+    
